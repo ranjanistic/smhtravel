@@ -9,72 +9,87 @@
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 
-
 <body class="bg-gray-100">
     <div id="loading-overlay"></div>
-    <div class="container mx-auto py-8">
-        <h1 class="text-2xl font-bold mb-4">SMH Travel</h1>
+    <div class="container max-w-screen-lg mx-auto py-8 px-4">
+        <h1 class="text-3xl font-bold mb-6 text-center">SMH Travel</h1>
 
         {% if files %}
         <!-- Global Inputs -->
-        <div class="mb-6 bg-white p-4 shadow rounded">
-            <h2 class="text-lg font-bold mb-2">For all tickets below</h2>
-            <div class="flex space-x-4 mb-4">
+        <div class="mb-6 bg-white p-6 shadow rounded">
+            <h2 class="text-lg font-bold mb-4">For all tickets below</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <input id="global_base_price" type="number" placeholder="Base Price" class="border p-2 rounded">
                 <input id="global_airport_tax" type="number" placeholder="Airport Tax" class="border p-2 rounded">
                 <input id="global_service_tax" type="number" placeholder="Service Tax" class="border p-2 rounded">
                 <select id="global_template" class="border p-2 rounded">
+                    <option value="">Choose template</option>
                     {% for template in templates %}
                     <option value="{{ template }}">{{ template }}</option>
                     {% endfor %}
                 </select>
+                <select id="global_airlines" class="border p-2 rounded">
+                    <option value="">Choose airline</option>
+                    {% for airline in airlines %}
+                    <option value="{{ airline }}">{{ airline }}</option>
+                    {% endfor %}
+                </select>
                 <input id="global_total_price" type="number" placeholder="Total price" class="border p-2 rounded">
             </div>
-        </div>
-
-        <!-- File List -->
-        <ul>
-            {% for file in files %}
-            <li class="mb-4 bg-white p-4 shadow rounded">
-                <div class="mb-2">
-                    <strong>
-                        <a href="/preview-file/?file={{ file }}" target="_blank" class="text-blue-500 hover:underline">
-                            {{ file.0 }}
-                        </a>
-                    </strong>
-                </div>
-                <div class="flex space-x-4">
-                    <input type="number" id="{{file.0}}-Base-Price" placeholder="Base Price" class="border p-2 rounded file-base-price">
-                    <input type="number" id="{{file.0}}-Airport-Tax" placeholder="Airport Tax" class="border p-2 rounded file-airport-tax">
-                    <input type="number" id="{{file.0}}-Service-Tax" placeholder="Service Tax" class="border p-2 rounded file-service-tax">
-                    <select id="{{file.0}}-file-template" class="border p-2 rounded file-template">
-                        {% for template in templates %}
-                        <option value="{{ template }}">{{ template }}</option>
-                        {% endfor %}
-                    </select>
-                    <input type="number" id="{{file.0}}-Total-Price" placeholder="Total Price" class="border p-2 rounded file-total-price">
-                    <input type="text" hidden class="border p-2 rounded file-old-name" value="{{ file.0 }}">
-                    {% if file.1 %}
-                    <input type="text" hidden class="border p-2 rounded file-new-name" value="{{ file.1 }}">
-                    <a href="/output-preview/?file={{ file.1 }}"><button
-                        class="bg-green-500 text-white px-4 py-2 rounded file-new-download">Download new</button></a>
-                    <button class="bg-red-500 text-white px-4 py-2 rounded file-new-discard">Discard</button>
-                    {% else %}
-                    <button class="bg-blue-500 text-white px-4 py-2 rounded file-new-generate">Generate</button>
-                    {% endif %}
-                    <button class="bg-red-500 text-white px-4 py-2 rounded file-old-clear">Remove</button>
-                </div>
-            </li>
-            {% endfor %}
-        </ul>
-
+            
         <!-- Actions -->
-        <div class="mt-6 flex space-x-4">
+        <div class="mt-6 flex flex-wrap gap-4">
             <button id="clear_all" class="bg-red-500 text-white px-4 py-2 rounded">Remove All Files</button>
             <button id="discard_all" class="bg-red-500 text-white px-4 py-2 rounded">Discard all</button>
             <button id="submit" class="bg-blue-500 text-white px-4 py-2 rounded">Generate all</button>
             <button id="download_all" class="bg-green-500 text-white px-4 py-2 rounded">Download all</button>
         </div>
+        </div>
+
+        <!-- File List -->
+        <ul>
+            {% for file in files %}
+            <li class="mb-6 bg-white p-6 shadow rounded">
+                <div class="mb-2">
+                    <strong>
+                        <a href="/preview-file/?file={{ file }}" target="_blank" class="text-blue-500 hover:underline break-words">
+                            {{ file.0 }}
+                        </a>
+                    </strong>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+                    <input type="number" id="{{file.0}}-Base-Price" placeholder="Base Price" class="border p-2 rounded file-base-price">
+                    <input type="number" id="{{file.0}}-Airport-Tax" placeholder="Airport Tax" class="border p-2 rounded file-airport-tax">
+                    <input type="number" id="{{file.0}}-Service-Tax" placeholder="Service Tax" class="border p-2 rounded file-service-tax">
+                    <select id="{{file.0}}-file-template" class="border p-2 rounded file-template">
+                        <option value="">Choose template</option>
+                        {% for template in templates %}
+                        <option value="{{ template }}">{{ template }}</option>
+                        {% endfor %}
+                    </select>
+                    <select id="{{file.0}}-file-airlines" class="border p-2 rounded file-airlines">
+                        <option value="">Choose airline</option>
+                        {% for airline in airlines %}
+                        <option value="{{ airline }}">{{ airline }}</option>
+                        {% endfor %}
+                    </select>
+                    <input type="number" id="{{file.0}}-Total-Price" placeholder="Total Price" class="border p-2 rounded file-total-price">
+                    <input type="text" hidden class="file-old-name" value="{{ file.0 }}">
+                    {% if file.1 %}
+                    <input type="text" hidden class="file-new-name" value="{{ file.1 }}">
+                    <a href="/output-preview/?file={{ file.1 }}" class="block">
+                        <button class="bg-green-500 text-white px-4 py-2 rounded w-full">Download new</button>
+                    </a>
+                    <button class="bg-red-500 text-white px-4 py-2 rounded w-full file-new-discard">Discard</button>
+                    {% else %}
+                    <button class="bg-blue-500 text-white px-4 py-2 rounded w-full file-new-generate">Generate</button>
+                    {% endif %}
+                    <button class="bg-red-500 text-white px-4 py-2 rounded w-full file-old-clear">Remove</button>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+
         {% else %}
         <!-- Upload Form -->
         <div class="bg-white p-6 shadow rounded">
@@ -214,24 +229,27 @@ document.addEventListener('DOMContentLoaded', () => {
         const globalBasePrice = document.getElementById('global_base_price');
         const globalAirportTax = document.getElementById('global_airport_tax');
         const globalServiceTax = document.getElementById('global_service_tax');
-        const globalTemplate = document.getElementById('global_template');
         const globalTotalPrice = document.getElementById('global_total_price');
+        const globalTemplate = document.getElementById('global_template');
+        const globalAirlines = document.getElementById('global_airlines');
 
         const updateFileInputs = () => {
             const fileBasePrices = document.querySelectorAll('.file-base-price');
             const fileAirportTaxes = document.querySelectorAll('.file-airport-tax');
             const fileServiceTaxes = document.querySelectorAll('.file-service-tax');
-            const fileTemplates = document.querySelectorAll('.file-template');
             const fileTotalPrice = document.querySelectorAll('.file-total-price');
+            const fileTemplates = document.querySelectorAll('.file-template');
+            const fileAirlines = document.querySelectorAll('.file-airlines');
 
-            fileBasePrices.forEach(input => input.value = globalBasePrice.value || input.value);
-            fileAirportTaxes.forEach(input => input.value = globalAirportTax.value || input.value);
-            fileServiceTaxes.forEach(input => input.value = globalServiceTax.value || input.value);
-            fileTemplates.forEach(select => select.value = globalTemplate.value || select.value);
-            fileTotalPrice.forEach(input => input.value = globalTotalPrice.value || input.value);
+            fileBasePrices.forEach(input => input.value = globalBasePrice.value);
+            fileAirportTaxes.forEach(input => input.value = globalAirportTax.value);
+            fileServiceTaxes.forEach(input => input.value = globalServiceTax.value);
+            fileTotalPrice.forEach(input => input.value = globalTotalPrice.value);
+            fileTemplates.forEach(select => select.value = globalTemplate.value);
+            fileAirlines.forEach(select => select.value = globalAirlines.value);
         };
 
-        [globalBasePrice, globalAirportTax, globalServiceTax, globalTemplate, globalTotalPrice].forEach(input => {
+        [globalBasePrice, globalAirportTax, globalServiceTax, globalTemplate, globalTotalPrice, globalAirlines].forEach(input => {
             input.addEventListener('input', updateFileInputs);
         });
 
@@ -270,8 +288,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             base_price: file.querySelector('.file-base-price').value,
                             airport_tax: file.querySelector('.file-airport-tax').value,
                             service_tax: file.querySelector('.file-service-tax').value,
-                            template: file.querySelector('.file-template').value,
                             total_price: file.querySelector('.file-total-price').value,
+                            template: file.querySelector('.file-template').value,
+                            airline: file.querySelector('.file-airlines').value,
                         });
                         window.location.reload();
                     } catch (err) {
@@ -289,8 +308,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     base_price: file.querySelector('.file-base-price').value,
                     airport_tax: file.querySelector('.file-airport-tax').value,
                     service_tax: file.querySelector('.file-service-tax').value,
-                    template: file.querySelector('.file-template').value,
                     total_price: file.querySelector('.file-total-price').value,
+                    template: file.querySelector('.file-template').value,
+                    airline: file.querySelector('.file-airlines').value,
                 }));
 
 

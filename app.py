@@ -19,14 +19,16 @@ templates = Jinja2Templates(directory="web")
 TEMPLATES_FOLDER = 'template'
 UPLOAD_FOLDER = 'input'
 OUTPUT_FOLDER = 'output'
+AIRLINES_FOLDER = 'airlines'
 
-def extract_text_from_pdf(pdf_path):
+def extract_pages_from_pdf(pdf_path):
     doc = fitz.open(pdf_path)
     text = ""
+    pages = []
     for page_num in range(len(doc)):
         page = doc.load_page(page_num)
-        text += "\n\n=====\n\n"+ page.get_text("text") 
-    return text
+        pages.append(page.get_text("text"))
+    return pages
 
 def write_on_pdf(input_pdf_path, output_pdf_path, text, x, y, page_number=0):
     
@@ -50,20 +52,46 @@ def write_on_pdf(input_pdf_path, output_pdf_path, text, x, y, page_number=0):
         writer.write(output_pdf)
 
 
+def create_output(inputfilename,pagesData, template, base_price, airport_tax, service_tax, total_price):
+    # for each page in pagesData, create a new pdf file using the template
+    for i in range(len(pagesData)):
+        reader = PdfReader(template)
+        writer = PdfWriter()
+        packet = BytesIO()
+        can = canvas.Canvas(packet, pagesize=letter)
+        can.drawString(100, 380, base_price)
+        can.drawString(100, 365, airport_tax)
+        can.drawString(100, 350, service_tax)
+        can.drawString(100, 335, total_price)
+        can.save()
+        packet.seek(0)
+
+        overlay_pdf = PdfReader(packet)
+        page = reader.pages[0]
+        page.merge_page(overlay_pdf.pages[0])
+        writer.add_page(page)
+        if len(pagesData) > 1:
+            with open(os.path.join(OUTPUT_FOLDER,f"new-{inputfilename}-{i}.pdf"), 'wb') as output_pdf:
+                writer.write(output_pdf)
+        else:
+            with open(os.path.join(OUTPUT_FOLDER,f"new-{inputfilename}.pdf"), 'wb') as output_pdf:
+                writer.write(output_pdf)
+
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     files = [f for f in os.listdir(UPLOAD_FOLDER) if f.lower().endswith('.pdf') and os.path.isfile(os.path.join(UPLOAD_FOLDER, f))]
     temps = [f for f in os.listdir(TEMPLATES_FOLDER) if f.lower().endswith('.pdf') and os.path.isfile(os.path.join(TEMPLATES_FOLDER, f))]
+    airlines = [f for f in os.listdir(AIRLINES_FOLDER) if f.lower().endswith('.png') or f.lower().endswith('.jpg')  and os.path.isfile(os.path.join(AIRLINES_FOLDER, f))]
     outputs = [f for f in os.listdir(OUTPUT_FOLDER) if f.lower().endswith('.pdf') and f.lower().startswith('new-') and os.path.isfile(os.path.join(OUTPUT_FOLDER, f))]
     # for each file, set the output file if name is new-{file}
     for file in files:
-        if f"new-{file}" in outputs:
+        if f"new-{file}" in outputs or len(list(filter(lambda x: x.startswith(f"new-{file.replace('.pdf','')}"), outputs))):
             files[files.index(file)] = (file, f"new-{file}")
         else:
             files[files.index(file)] = (file, None)
     
-    return templates.TemplateResponse("index.html", dict(request=request, files=files, templates=temps))
+    return templates.TemplateResponse("index.html", dict(request=request, files=files, templates=temps, airlines=airlines))
 
 
 
@@ -104,9 +132,10 @@ async def upload_process(request: Request):
     else:
         files = body
     for file in files:
-        filedata = extract_text_from_pdf(os.path.join(UPLOAD_FOLDER,file['name']))
+        pages = extract_pages_from_pdf(os.path.join(UPLOAD_FOLDER,file['name']))
+        create_output(file['name'].replace('.pdf',''), pages, os.path.join(TEMPLATES_FOLDER,file['template']), file['base_price'], file['airport_tax'], file['service_tax'], file['total_price'])
         # print(filedata)
-        write_on_pdf(os.path.join(UPLOAD_FOLDER,file['name']),os.path.join(OUTPUT_FOLDER,f"new-{file['name']}"), filedata, 100, 100, 0)
+        # write_on_pdf(os.path.join(UPLOAD_FOLDER,file['name']),os.path.join(OUTPUT_FOLDER,f"new-{file['name']}"), filedata, 100, 100, 0)
     return JSONResponse(jsonable_encoder(dict(message= "Files processed.")))
 
 
@@ -141,7 +170,26 @@ async def output_preview(request: Request):
 
     file_path = os.path.join(OUTPUT_FOLDER, file_name)
     if not os.path.exists(file_path):
-       return {"error": "File not found"} 
+        files = [f for f in os.listdir(OUTPUT_FOLDER) if f.lower().endswith('.pdf') and f.startswith(f"{file_name.replace('.pdf','')}")]
+        print(files, file_name,f"{file_name.replace('.pdf','')}")
+        if files:
+            zip_file_path = f"{file_name}.zip"
+            # create a separate folder and copy the files there
+            for file in files:
+                if not os.path.exists(os.path.join(OUTPUT_FOLDER, file_name.replace('.pdf',''))):
+                    os.mkdir(os.path.join(OUTPUT_FOLDER, file_name.replace('.pdf','')))
+                shutil.copyfile(os.path.join(OUTPUT_FOLDER, file), os.path.join(OUTPUT_FOLDER, file_name.replace('.pdf',''), file.replace(f"new-{file_name.replace('.pdf','')}",'')))
+            
+            shutil.make_archive(file_name, "zip", os.path.join(OUTPUT_FOLDER, file_name.replace('.pdf','')))
+            
+            shutil.rmtree(os.path.join(OUTPUT_FOLDER, file_name.replace('.pdf','')))
+            return FileResponse(
+                f"{file_name}.zip",
+                media_type="application/zip",
+                filename=f"{file_name}.zip",
+            )
+        return JSONResponse(jsonable_encoder(dict(message= "File not found.")), status_code=404) 
+    
     return FileResponse(path=file_path, media_type='application/pdf', filename=file_name)
 
 
