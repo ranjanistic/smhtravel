@@ -1,7 +1,9 @@
 import shutil
+import time
 from fastapi.encoders import jsonable_encoder
 import fitz
 import os
+from thefuzz import fuzz, process
 # from reportlab.pdfgen import canvas
 from PyPDF2 import PdfReader, PdfWriter
 from reportlab.pdfgen import canvas
@@ -52,17 +54,118 @@ def write_on_pdf(input_pdf_path, output_pdf_path, text, x, y, page_number=0):
         writer.write(output_pdf)
 
 
-def create_output(inputfilename,pagesData, template, base_price, airport_tax, service_tax, total_price):
-    # for each page in pagesData, create a new pdf file using the template
+def getTicketDataFromPageData(pageData, ticketType = 1):
+    default_value = '-'
+
+    data = dict()
+    if ticketType == 1:
+        rawdata = pageData.replace(u'\xa0', u' ').split('\n')
+        
+        traveller = rawdata[rawdata.index('Traveler:')+1].upper() or default_value
+        data = dict(
+            traveller=traveller,
+            passport_no = default_value.upper(),
+            dob= default_value,
+        )
+        data['airline_name'] = rawdata[rawdata.index('Airline')+6] or default_value
+        data['status'] = rawdata[rawdata.index('Status')+5].upper() or default_value
+        data['flight_no'] = rawdata[rawdata.index('Flight No')+5].split(' ').pop() or default_value
+        data['cabin'] = rawdata[rawdata.index('Cabin/Class')+5] or default_value
+        data['stop'] = default_value
+        data['airline_pnr'] = rawdata[[i for i, x in enumerate(rawdata) if 'Airline PNR:' in x][0]].split(':')[1] or default_value
+        data['ticket_no'] = default_value
+        data['depart'] = rawdata[rawdata.index('Depart')+1] or default_value
+        data['arrive'] = rawdata[rawdata.index('Arrive')+1] or default_value
+        data['date'] =  " ".join(rawdata[rawdata.index('Date')+6].split(' ')[0:3]) or default_value
+        data['time'] = rawdata[rawdata.index('Time')+1] or default_value
+        data['baggage'] = rawdata[rawdata.index('Baggage')+5] or default_value
+        data['departure_terminal'] = default_value
+        
+        isReturnTrip = len([i for i, x in enumerate(rawdata) if x == "Depart"]) > 1
+        data['isReturnTrip'] = isReturnTrip
+
+        if isReturnTrip:
+            data['airline_name2'] = rawdata[[i for i, x in enumerate(rawdata) if x == "Airline"][1]+6] or default_value
+            # data['status2'] = rawdata[[i for i, x in enumerate(rawdata) if x == "Status"][1]+5] or default_value
+            data['flight_no2'] = rawdata[[i for i, x in enumerate(rawdata) if x == 'Flight No'][1]+5].split(' ').pop() or default_value
+            data['cabin2'] = rawdata[[i for i, x in enumerate(rawdata) if x == 'Cabin/Class'][1]+5] or default_value
+            data['stop2'] = default_value
+            data['airline_pnr2'] = rawdata[[i for i, x in enumerate(rawdata) if 'Airline PNR:' in x][1]].split(':')[1] or default_value
+            data['ticket_no2'] = default_value
+            data['depart2'] = rawdata[[i for i, x in enumerate(rawdata) if x == "Depart"][1]+1] or default_value
+            data['arrive2'] = rawdata[[i for i, x in enumerate(rawdata) if x == "Arrive"][1]+1] or default_value
+            data['date2'] = " ".join(rawdata[[i for i, x in enumerate(rawdata) if x == "Date"][3]+6].split(' ')[0:3]) or default_value
+            data['time2'] = rawdata[[i for i, x in enumerate(rawdata) if x == "Time"][2]+1] or default_value
+            data['baggage2'] = rawdata[[i for i, x in enumerate(rawdata) if x == "Baggage"][1]+5] or default_value
+            data['departure_terminal2'] = default_value
+
+    return data
+
+
+def create_output(inputfilename, pagesData, base_price, airport_tax, service_tax, total_price):
     for i in range(len(pagesData)):
+        ticket = getTicketDataFromPageData(pagesData[i])
+        # print(ticket)
+        template = os.path.join(TEMPLATES_FOLDER, '2.pdf' if ticket['isReturnTrip'] else '1.pdf') 
         reader = PdfReader(template)
         writer = PdfWriter()
         packet = BytesIO()
         can = canvas.Canvas(packet, pagesize=letter)
-        can.drawString(100, 380, base_price)
-        can.drawString(100, 365, airport_tax)
-        can.drawString(100, 350, service_tax)
-        can.drawString(100, 335, total_price)
+        can.setFontSize(8)
+        # check if airline logo exists
+
+        can.drawString(10, 622, ticket['traveller'])
+        can.drawString(230, 622, ticket['passport_no'])
+        can.drawString(350, 622, ticket['dob'])
+        can.drawString(435, 622, ticket['status'])
+
+        can.drawString(40, 475, ticket['airline_name'])
+        logo,_ = process.extractOne(ticket['airline_name'], os.listdir(AIRLINES_FOLDER))
+        if logo:
+            can.drawImage(os.path.join(AIRLINES_FOLDER, logo), 8, 470, width=30, height=30)
+        can.drawString(110, 475, ticket['flight_no'])
+        can.drawString(240, 475,ticket['cabin'])
+        can.drawString(310,475,ticket['stop'])
+        can.drawString(360,475,ticket['airline_pnr'])
+        can.drawString(440,475,ticket['ticket_no'])
+
+        can.drawString(40, 445,ticket['depart'])
+        can.drawString(110, 445,ticket['arrive'])
+        can.drawString(240, 445,ticket['date'])
+        can.drawString(310,445,ticket['time'])
+        can.drawString(360,445,ticket['baggage'])
+        can.drawString(440,445,ticket['departure_terminal'])
+
+
+        if not ticket['isReturnTrip']:
+            can.drawString(100, 380, base_price)
+            can.drawString(100, 365, airport_tax)
+            can.drawString(100, 350, service_tax)
+            can.drawString(100, 335, total_price)
+        else:
+            
+            can.drawString(40, 385, ticket['airline_name2'])
+            logo,_ = process.extractOne(ticket['airline_name2'], os.listdir(AIRLINES_FOLDER))
+            if logo:
+                can.drawImage(os.path.join(AIRLINES_FOLDER, logo), 8, 380, width=30, height=30)
+        
+            can.drawString(110,385, ticket['flight_no2'])
+            can.drawString(240,385,ticket['cabin2'])
+            can.drawString(310,385,ticket['stop2'])
+            can.drawString(360,385,ticket['airline_pnr2'])
+            can.drawString(440,385,ticket['ticket_no2'])
+
+            can.drawString(40, 355,ticket['depart2'])
+            can.drawString(110,355,ticket['arrive2'])
+            can.drawString(240,355,ticket['date2'])
+            can.drawString(310,355,ticket['time2'])
+            can.drawString(360,355,ticket['baggage2'])
+            can.drawString(440,355,ticket['departure_terminal2'])
+
+            can.drawString(95, 285, base_price)
+            can.drawString(95, 270, airport_tax)
+            can.drawString(95, 255, service_tax)
+            can.drawString(95, 240, total_price)
         can.save()
         packet.seek(0)
 
@@ -133,7 +236,7 @@ async def upload_process(request: Request):
         files = body
     for file in files:
         pages = extract_pages_from_pdf(os.path.join(UPLOAD_FOLDER,file['name']))
-        create_output(file['name'].replace('.pdf',''), pages, os.path.join(TEMPLATES_FOLDER,file['template']), file['base_price'], file['airport_tax'], file['service_tax'], file['total_price'])
+        create_output(file['name'].replace('.pdf',''), pages, file['base_price'], file['airport_tax'], file['service_tax'], file['total_price'])
         # print(filedata)
         # write_on_pdf(os.path.join(UPLOAD_FOLDER,file['name']),os.path.join(OUTPUT_FOLDER,f"new-{file['name']}"), filedata, 100, 100, 0)
     return JSONResponse(jsonable_encoder(dict(message= "Files processed.")))

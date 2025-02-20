@@ -1,3 +1,5 @@
-*.pdf
+input/*.pdf
+output/*.pdf
 __pycache__
 *.zip
+*.txt
