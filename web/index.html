@@ -13,8 +13,17 @@
     <div id="loading-overlay"></div>
     <div class="container max-w-screen-lg mx-auto py-8 px-4">
         <h1 class="text-3xl font-bold mb-6 text-center">SMH Travel</h1>
+        <a href="/history/" class="text-blue-500 w-full flex justify-end pb-4 hover:underline break-words">View history</a>
 
         {% if files %}
+        <div class="bg-white p-6 shadow rounded">
+            <form id="upload_form" enctype="multipart/form-data">
+                <label class="block mb-2 font-bold">Add more tickets</label>
+                <input type="file" name="files" id="file_input" multiple class="block mb-4">
+                <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded">Upload</button>
+            </form>
+        </div>
+        <br/>
         <!-- Global Inputs -->
         <div class="mb-6 bg-white p-6 shadow rounded">
             <h2 class="text-lg font-bold mb-4">For all tickets below</h2>
@@ -52,7 +61,7 @@
             <li class="mb-6 bg-white p-6 shadow rounded">
                 <div class="mb-2">
                     <strong>
-                        <a href="/preview-file/?file={{ file }}" target="_blank" class="text-blue-500 hover:underline break-words">
+                        <a href="/upload-preview/?file={{ file.0 }}" target="_blank" class="text-blue-500 hover:underline break-words">
                             {{ file.0 }}
                         </a>
                     </strong>
@@ -88,6 +97,7 @@
                 </div>
             </li>
             {% endfor %}
+            
         </ul>
 
         {% else %}
