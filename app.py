@@ -2,6 +2,7 @@ import shutil
 import time
 from fastapi.encoders import jsonable_encoder
 import fitz
+import re
 import os
 from thefuzz import fuzz, process
 # from reportlab.pdfgen import canvas
@@ -22,6 +23,12 @@ TEMPLATES_FOLDER = 'template'
 UPLOAD_FOLDER = 'input'
 OUTPUT_FOLDER = 'output'
 AIRLINES_FOLDER = 'airlines'
+
+def find_index_with_prefix(string_list, prefix):
+    try:
+        return next(i for i, s in enumerate(string_list) if (lambda x: x.startswith(prefix))(s))
+    except StopIteration:
+        return -1
 
 def extract_pages_from_pdf(pdf_path):
     doc = fitz.open(pdf_path)
@@ -54,12 +61,26 @@ def write_on_pdf(input_pdf_path, output_pdf_path, text, x, y, page_number=0):
         writer.write(output_pdf)
 
 
-def getTicketDataFromPageData(pageData, ticketType = 1):
-    default_value = '-'
+def getTicketTypeFromRawData(rawdata):
+    if rawdata[0].strip() == 'This document is not valid for traveling':
+        return 1
+    if rawdata[0].strip() == 'Cancellation penalties:':
+        return 2
+    if rawdata[0].strip() == 'Airline':
+        return 3
+    
+    return False
 
+def getTicketDataFromPageData(pageData):
+    
+    rawdata = list(filter(lambda x: len(x) > 0 ,list(map(lambda y: y.strip(), pageData.replace(u'\xa0', u' ').split('\n')))))
+    ticketType = getTicketTypeFromRawData(rawdata)
+    if not ticketType:
+        return None
+    default_value = '-'
+    print(rawdata, ticketType)
     data = dict()
     if ticketType == 1:
-        rawdata = pageData.replace(u'\xa0', u' ').split('\n')
         
         traveller = rawdata[rawdata.index('Traveler:')+1].upper() or default_value
         data = dict(
@@ -98,13 +119,63 @@ def getTicketDataFromPageData(pageData, ticketType = 1):
             data['time2'] = rawdata[[i for i, x in enumerate(rawdata) if x == "Time"][2]+1] or default_value
             data['baggage2'] = rawdata[[i for i, x in enumerate(rawdata) if x == "Baggage"][1]+5] or default_value
             data['departure_terminal2'] = default_value
-
+    elif ticketType == 2:
+        traveller = rawdata[rawdata.index('Passenger Name')+3].upper() or default_value
+        traveller = traveller.split('/')[1].split("-")[0].strip()+" "+ traveller.split('/')[0].replace("_"," ")
+        passport_no = rawdata[rawdata.index('Passport No / National ID')+1] or default_value
+        data = dict(
+            traveller=traveller,
+            passport_no = passport_no,
+            dob= default_value,
+        )
+        data['airline_name'] = rawdata[rawdata.index('Cancellation penalties:')+8] or default_value
+        data['status'] = default_value
+        data['flight_no'] = data['airline_name'].split(' ')[0] or default_value
+        data['cabin'] = rawdata[rawdata.index('Class')+1].split(" ")[0] or default_value
+        data['stop'] = default_value
+        data['airline_pnr'] = rawdata[rawdata.index('Local PNR')+1] or default_value
+        data['ticket_no'] = rawdata[rawdata.index('Ticket number')+3] or default_value
+        data['depart'] = rawdata[rawdata.index('Origin')-5] or default_value
+        data['arrive'] = rawdata[rawdata.index('Destination')-5] or default_value
+        data['date'] =  " ".join(rawdata[rawdata.index('Flight Date')-5].split(" ")[1:]) or default_value
+        data['time'] = rawdata[rawdata.index('Flight time')-5] or default_value
+        data['baggage'] = rawdata[rawdata.index('Checked Baggage')+5].split(' ')[2]+' KG' or default_value
+        data['departure_terminal'] = default_value
+        
+        isReturnTrip = len([i for i, x in enumerate(rawdata) if x == "Origin"]) > 1
+        data['isReturnTrip'] = isReturnTrip
+    elif ticketType == 3:
+        traveller = " ".join(list(filter(lambda x: x.strip(), rawdata[find_index_with_prefix(rawdata,'Traveler:')].split(' ')))[1:]) or default_value
+        data = dict(
+            traveller=traveller,
+            passport_no = default_value,
+            dob= default_value,
+        )
+        data['airline_name'] = list(filter(lambda x: x.strip(),re.split("  ",rawdata[rawdata.index('Airline')+11])))[0] or default_value
+        data['status'] = default_value
+        data['flight_no'] = list(filter(lambda x: x.strip(),re.split("  ",rawdata[rawdata.index('Airline')+11])))[1] or default_value
+        data['cabin'] = list(filter(lambda x: x.strip(),re.split("  ",rawdata[rawdata.index('Airline')+11])))[2].split("/")[0].strip() or default_value
+        data['stop'] = default_value
+        data['airline_pnr'] = rawdata[[i for i, x in enumerate(rawdata) if 'Airline PNR:' in x][0]].split(':')[1] or default_value
+        data['ticket_no'] = rawdata[find_index_with_prefix(rawdata,'E-Ticket Number:')].split(":")[1].strip() or default_value
+        data['depart'] = rawdata[find_index_with_prefix(rawdata,'Depart:')].split(":")[1].strip() or default_value
+        data['arrive'] = rawdata[find_index_with_prefix(rawdata,'Arrive:')].split(":")[1].strip() or default_value
+        data['date'] =  rawdata[[i for i, x in enumerate(rawdata) if x.startswith("Date:")][0]].split("Time:")[0].split(":")[1].strip() or default_value
+        data['time'] =  rawdata[[i for i, x in enumerate(rawdata) if x.startswith("Date:")][0]].split("Time:")[1].strip() or default_value
+        data['baggage'] = "".join(list(filter(lambda x: x.strip(),re.split("  ",rawdata[rawdata.index('Airline')+11])))[2].split("/")[1].split(" ")[3:]).strip() or default_value
+        data['departure_terminal'] =  rawdata[find_index_with_prefix(rawdata,"Departure Terminal:")].split(":")[1].strip() or default_value
+        
+        isReturnTrip = len([i for i, x in enumerate(rawdata) if x.startswith("Depart:")]) > 1
+        data['isReturnTrip'] = isReturnTrip
     return data
 
 
-def create_output(inputfilename, pagesData, base_price, airport_tax, service_tax, total_price):
+
+def create_output(inputfilename, pagesData, base_price, airport_tax, service_tax, total_price, logo=None):
     for i in range(len(pagesData)):
         ticket = getTicketDataFromPageData(pagesData[i])
+        if not ticket:
+            continue
         # print(ticket)
         template = os.path.join(TEMPLATES_FOLDER, '2.pdf' if ticket['isReturnTrip'] else '1.pdf') 
         reader = PdfReader(template)
@@ -120,7 +191,8 @@ def create_output(inputfilename, pagesData, base_price, airport_tax, service_tax
         can.drawString(435, 622, ticket['status'])
 
         can.drawString(40, 475, ticket['airline_name'])
-        logo,_ = process.extractOne(ticket['airline_name'], os.listdir(AIRLINES_FOLDER))
+        if not logo:
+            logo,_ = process.extractOne(ticket['airline_name'], os.listdir(AIRLINES_FOLDER))
         if logo:
             can.drawImage(os.path.join(AIRLINES_FOLDER, logo), 8, 470, width=30, height=30)
         can.drawString(110, 475, ticket['flight_no'])
@@ -131,7 +203,7 @@ def create_output(inputfilename, pagesData, base_price, airport_tax, service_tax
 
         can.drawString(40, 445,ticket['depart'])
         can.drawString(110, 445,ticket['arrive'])
-        can.drawString(240, 445,ticket['date'])
+        can.drawString(233, 445,ticket['date'])
         can.drawString(310,445,ticket['time'])
         can.drawString(360,445,ticket['baggage'])
         can.drawString(440,445,ticket['departure_terminal'])
@@ -145,7 +217,8 @@ def create_output(inputfilename, pagesData, base_price, airport_tax, service_tax
         else:
             
             can.drawString(40, 385, ticket['airline_name2'])
-            logo,_ = process.extractOne(ticket['airline_name2'], os.listdir(AIRLINES_FOLDER))
+            if not logo:
+                logo,_ = process.extractOne(ticket['airline_name2'], os.listdir(AIRLINES_FOLDER))
             if logo:
                 can.drawImage(os.path.join(AIRLINES_FOLDER, logo), 8, 380, width=30, height=30)
         
@@ -231,14 +304,14 @@ async def upload_process(request: Request):
                       service_tax=body['service_tax'],
                       template=body['template'],
                       total_price=body['total_price'],
+                      airline=body['airline'],
                       )]
     else:
         files = body
     for file in files:
         pages = extract_pages_from_pdf(os.path.join(UPLOAD_FOLDER,file['name']))
-        create_output(file['name'].replace('.pdf',''), pages, file['base_price'], file['airport_tax'], file['service_tax'], file['total_price'])
-        # print(filedata)
-        # write_on_pdf(os.path.join(UPLOAD_FOLDER,file['name']),os.path.join(OUTPUT_FOLDER,f"new-{file['name']}"), filedata, 100, 100, 0)
+        create_output(file['name'].replace('.pdf',''), pages, file['base_price'], file['airport_tax'], file['service_tax'], file['total_price'], file.get('airline',None))
+    
     return JSONResponse(jsonable_encoder(dict(message= "Files processed.")))
 
 

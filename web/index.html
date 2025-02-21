@@ -28,7 +28,7 @@
                     <option value="{{ template }}">{{ template }}</option>
                     {% endfor %}
                 </select>
-                <select hidden id="global_airlines" class="border p-2 rounded">
+                <select id="global_airlines" class="border p-2 rounded">
                     <option value="">Choose airline</option>
                     {% for airline in airlines %}
                     <option value="{{ airline }}">{{ airline }}</option>
@@ -67,7 +67,7 @@
                         <option value="{{ template }}">{{ template }}</option>
                         {% endfor %}
                     </select>
-                    <select hidden id="{{file.0}}-file-airlines" class="border p-2 rounded file-airlines">
+                    <select id="{{file.0}}-file-airlines" class="border p-2 rounded file-airlines">
                         <option value="">Choose airline</option>
                         {% for airline in airlines %}
                         <option value="{{ airline }}">{{ airline }}</option>
