@@ -269,6 +269,13 @@ async def index(request: Request):
     
     return templates.TemplateResponse("index.html", dict(request=request, files=files, templates=temps, airlines=airlines))
 
+@app.get("/history", response_class=HTMLResponse)
+async def index(request: Request):
+    outputs = [f for f in os.listdir(OUTPUT_FOLDER) if f.lower().endswith('.pdf') and f.lower().startswith('new-') and os.path.isfile(os.path.join(OUTPUT_FOLDER, f))]
+    # for each file, set the output file if name is new-{file}
+    
+    return templates.TemplateResponse("output.html", dict(request=request, outputs=outputs))
+
 
 
 @app.post("/upload-files/", response_class=HTMLResponse)
