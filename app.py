@@ -71,8 +71,8 @@ def getTicketTypeFromRawData(rawdata):
     if rawdata[0].strip() == 'Airline':
         return 3
     if 'Passport Expire Date' in rawdata:
-        return 4    
-    if 'Passport Expire Date' in rawdata:
+        return 4
+    if 'RESERVATION CONFIRMED' in rawdata or '• TRAVEL SEGMENTS' in rawdata:
         return 5
     
     return False
@@ -87,15 +87,13 @@ def getTicketDataFromPageData(pageData):
     if not ticketType:
         return None
     default_value = '-'
-    data = dict()
+    data = dict(ticketType=ticketType, rawdata=rawdata)
     if ticketType == 1:
+
+        data['traveller'] = rawdata[rawdata.index('Traveler:')+1].upper() or default_value
+        data['passport_no'] = default_value
+        data['dob'] = default_value
         
-        traveller = rawdata[rawdata.index('Traveler:')+1].upper() or default_value
-        data = dict(
-            traveller=traveller,
-            passport_no = default_value.upper(),
-            dob= default_value,
-        )
         data['airline_name'] = rawdata[rawdata.index('Airline')+6] or default_value
         data['status'] = rawdata[rawdata.index('Status')+5].upper() or default_value
         data['flight_no'] = rawdata[rawdata.index('Flight No')+5].split(' ').pop() or default_value
@@ -129,13 +127,10 @@ def getTicketDataFromPageData(pageData):
             data['departure_terminal2'] = default_value
     elif ticketType == 2:
         traveller = rawdata[rawdata.index('Passenger Name')+3].upper() or default_value
-        traveller = traveller.split('/')[1].split("-")[0].strip()+" "+ traveller.split('/')[0].replace("_"," ")
-        passport_no = rawdata[rawdata.index('Passport No / National ID')+1] or default_value
-        data = dict(
-            traveller=traveller,
-            passport_no = passport_no,
-            dob= default_value,
-        )
+        data['traveller'] = traveller.split('/')[1].split("-")[0].strip()+" "+ traveller.split('/')[0].replace("_"," ")
+        data['passport_no'] = rawdata[rawdata.index('Passport No / National ID')+1] or default_value
+        data['dob'] = default_value
+        
         data['airline_name'] = rawdata[rawdata.index('Cancellation penalties:')+8] or default_value
         data['status'] = default_value
         data['flight_no'] = data['airline_name'].split(' ')[0] or default_value
@@ -153,12 +148,10 @@ def getTicketDataFromPageData(pageData):
         isReturnTrip = len([i for i, x in enumerate(rawdata) if x == "Origin"]) > 1
         data['isReturnTrip'] = isReturnTrip
     elif ticketType == 3:
-        traveller = " ".join(list(filter(lambda x: x.strip(), rawdata[find_index_with_prefix(rawdata,'Traveler:')].split(' ')))[1:]) or default_value
-        data = dict(
-            traveller=traveller,
-            passport_no = default_value,
-            dob= default_value,
-        )
+        data['traveller'] = " ".join(list(filter(lambda x: x.strip(), rawdata[find_index_with_prefix(rawdata,'Traveler:')].split(' ')))[1:]) or default_value
+        data['passport_no'] = default_value
+        data['dob'] = default_value
+        
         data['airline_name'] = list(filter(lambda x: x.strip(),re.split("  ",rawdata[rawdata.index('Airline')+11])))[0] or default_value
         data['status'] = default_value
         data['flight_no'] = list(filter(lambda x: x.strip(),re.split("  ",rawdata[rawdata.index('Airline')+11])))[1] or default_value
@@ -176,13 +169,10 @@ def getTicketDataFromPageData(pageData):
         isReturnTrip = len([i for i, x in enumerate(rawdata) if x.startswith("Depart:")]) > 1
         data['isReturnTrip'] = isReturnTrip
     elif ticketType == 4:
-        traveller = rawdata[rawdata.index('Passenger\'s Name')+1].upper() or default_value
-        passport_no = rawdata[rawdata.index('Passport Number')+1].upper() or default_value
-        data = dict(
-            traveller=traveller,
-            passport_no = passport_no,
-            dob= default_value,
-        )
+        data['traveller'] = rawdata[rawdata.index('Passenger\'s Name')+1].upper() or default_value
+        data['passport_no'] = rawdata[rawdata.index('Passport Number')+1].upper() or default_value
+        data['dob']= default_value
+        
         data['airline_name'] = rawdata[rawdata.index('Airline:')+1] or default_value
         data['status'] = default_value
         data['flight_no'] = rawdata[find_index_with_prefix(rawdata,'Flight Number:')].split(":")[1] or default_value
@@ -197,7 +187,8 @@ def getTicketDataFromPageData(pageData):
         data['baggage'] = rawdata[rawdata.index('Checked-in baggage')+1] or default_value
         data['departure_terminal'] = default_value
         data['isReturnTrip'] = False
-    print(data)
+    elif ticketType == 5:
+        pass
     return data
 
 
@@ -207,13 +198,11 @@ def create_output(inputfilename, pagesData, base_price, airport_tax, service_tax
     for i in range(len(pagesData)):
         if i in skip_pages:
             continue
-        rawdata = getRawDataFromPageData(pagesData[i])
-        ticketType = getTicketTypeFromRawData(rawdata)
         ticket = getTicketDataFromPageData(pagesData[i])
         if not ticket:
             continue
         # print(ticket)
-        if ticketType == 4 and len(pagesData)-1 >= i+1:
+        if ticket['ticketType'] == 4 and len(pagesData)-1 >= i+1:
             ticket2 = getTicketDataFromPageData(pagesData[i+1])
             if ticket2['passport_no'] == ticket['passport_no'] and ticket2['depart'] == ticket['arrive'] and ticket2['arrive'] == ticket['depart']:
                 ticket['isReturnTrip'] = True
@@ -230,6 +219,10 @@ def create_output(inputfilename, pagesData, base_price, airport_tax, service_tax
                 ticket['baggage2'] = ticket2['baggage']
                 ticket['departure_terminal2'] = ticket2['departure_terminal']
                 skip_pages.append(i+1)
+        if ticket['ticketType'] == 5 and 'RESERVATION CONFIRMED' in ticket['rawdata']:
+            ticket2 = getTicketDataFromPageData(pagesData[i+1])
+            
+
 
         template = os.path.join(TEMPLATES_FOLDER, '2.pdf' if ticket['isReturnTrip'] else '1.pdf') 
         reader = PdfReader(template)
