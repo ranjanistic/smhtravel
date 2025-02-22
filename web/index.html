@@ -31,19 +31,20 @@
                 <input id="global_base_price" type="text" placeholder="Base Price" class="border p-2 rounded">
                 <input id="global_airport_tax" type="text" placeholder="Airport Tax" class="border p-2 rounded">
                 <input id="global_service_tax" type="text" placeholder="Service Tax" class="border p-2 rounded">
+                <input id="global_total_price" type="text" placeholder="Total price" class="border p-2 rounded">
+                
                 <select hidden id="global_template" class="border p-2 rounded">
                     <option value="">Choose template</option>
                     {% for template in templates %}
                     <option value="{{ template }}">{{ template }}</option>
                     {% endfor %}
                 </select>
-                <select id="global_airlines" class="border p-2 rounded">
+                <select id="global_airlines" class="border p-2 rounded"> // sort
                     <option value="">Choose airline</option>
                     {% for airline in airlines %}
                     <option value="{{ airline }}">{{ airline }}</option>
                     {% endfor %}
                 </select>
-                <input id="global_total_price" type="text" placeholder="Total price" class="border p-2 rounded">
             </div>
             
         <!-- Actions -->
@@ -70,6 +71,9 @@
                     <input type="text" id="{{file.0}}-Base-Price" placeholder="Base Price" class="border p-2 rounded file-base-price">
                     <input type="text" id="{{file.0}}-Airport-Tax" placeholder="Airport Tax" class="border p-2 rounded file-airport-tax">
                     <input type="text" id="{{file.0}}-Service-Tax" placeholder="Service Tax" class="border p-2 rounded file-service-tax">
+                    <input type="text" id="{{file.0}}-Total-Price" placeholder="Total Price" class="border p-2 rounded file-total-price">
+                    <input type="text" id="{{file.0}}-Passport" placeholder="Passport" class="border p-2 rounded file-passport">
+                    <input type="text" id="{{file.0}}-dob" placeholder="DOB" class="border p-2 rounded file-dob">
                     <select hidden id="{{file.0}}-file-template" class="border p-2 rounded file-template">
                         <option value="">Choose template</option>
                         {% for template in templates %}
@@ -82,7 +86,6 @@
                         <option value="{{ airline }}">{{ airline }}</option>
                         {% endfor %}
                     </select>
-                    <input type="text" id="{{file.0}}-Total-Price" placeholder="Total Price" class="border p-2 rounded file-total-price">
                     <input type="text" hidden class="file-old-name" value="{{ file.0 }}">
                     {% if file.1 %}
                     <input type="text" hidden class="file-new-name" value="{{ file.1 }}">
@@ -117,6 +120,9 @@
 function saveInputsToLocalStorage() {
   const inputs = document.querySelectorAll('input, select, textarea');
   inputs.forEach((input) => {
+    if(input.type !== 'file'){
+
+    
     input.addEventListener('input', () => {
       const inputData = {};
       inputs.forEach((el) => {
@@ -124,6 +130,7 @@ function saveInputsToLocalStorage() {
       });
       localStorage.setItem('formData', JSON.stringify(inputData));
     });
+}
   });
 }
 
@@ -133,11 +140,14 @@ function loadInputsFromLocalStorage() {
   if (!formData) return;
 
   const inputs = document.querySelectorAll('input, select, textarea');
+  
   inputs.forEach((input) => {
+  if(input.type !== 'file'){
     const key = input.name || input.id;
     if (formData[key] !== undefined) {
       input.value = formData[key];
     }
+}
   });
 }
 
