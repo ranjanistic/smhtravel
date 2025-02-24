@@ -63,7 +63,7 @@ def write_on_pdf(input_pdf_path, output_pdf_path, text, x, y, page_number=0):
 
 
 def getTicketTypeFromRawData(rawdata):
-    print(rawdata)
+    
     if rawdata[0].strip() == 'This document is not valid for traveling':
         return 1
     if rawdata[0].strip() == 'Cancellation penalties:':
@@ -72,14 +72,14 @@ def getTicketTypeFromRawData(rawdata):
         return 3
     if 'Passport Expire Date' in rawdata:
         return 4
-    if 'RESERVATION CONFIRMED' in rawdata or '• TRAVEL SEGMENTS' in rawdata:
+    if 'RESERVATION CONFIRMED' in rawdata or 'TRAVEL SEGMENTS' in rawdata:
         return 5
     
     return False
 
 def getRawDataFromPageData(pageData):
-    print(pageData)
-    return  list(filter(lambda x: len(x) > 0 ,list(map(lambda y: y.strip(), pageData.replace(u'\xa0', u' ').replace('’','\'').split('\n')))))
+    
+    return  list(filter(lambda x: len(x) > 0 ,list(map(lambda y: y.strip(), pageData.replace(u'\xa0', u' ').replace('’','\'').replace('•','').split('\n')))))
 
 def getTicketDataFromPageData(pageData):
     rawdata = getRawDataFromPageData(pageData)
@@ -187,14 +187,56 @@ def getTicketDataFromPageData(pageData):
         data['baggage'] = rawdata[rawdata.index('Checked-in baggage')+1] or default_value
         data['departure_terminal'] = default_value
         data['isReturnTrip'] = False
-    elif ticketType == 5:
-        pass
+    else:
+        
+        if ticketType == 5:
+            datas = []
+            i = rawdata.index('E TICKET DETAILS')+5
+            print(i, range(i, len(rawdata), 3))
+            for x in range(i, len(rawdata), 4):
+                locdata = dict(ticketType=ticketType,)
+                locdata['airline_pnr'] = rawdata[rawdata.index('RESERVATION NUMBER (PNR)')+1] or default_value
+                locdata['status'] = rawdata[rawdata.index('STATUS')+16] or default_value
+                locdata['depart'] = rawdata[rawdata.index('ORIGIN /')+13] or default_value
+                locdata['arrive'] = rawdata[rawdata.index('DESTINATION')+24] or default_value
+                locdata['date'] = rawdata[rawdata.index('DEPARTURE /')+24] or default_value
+                locdata['time'] = rawdata[rawdata.index('DEPARTURE /')+25] or default_value
+                locdata['cabin'] = rawdata[rawdata.index('CLASS OF SERVICE')+15] or default_value
+                locdata['stop'] = default_value
+                locdata['departure_terminal'] = default_value
+                locdata['isReturnTrip'] = False
+                locdata['baggage'] = default_value
+                locdata['passport_no'] = default_value
+                locdata['dob']= default_value
+                print(x, rawdata[x])
+                locdata['traveller'] = rawdata[x]
+                locdata['flight_no'] = rawdata[x+2]
+                locdata['ticket_no'] = rawdata[x+3]
+                datas.append(locdata)
+            print(len(datas))
+            return datas
+        else:
+            return data
     return data
 
 
 
 def create_output(inputfilename, pagesData, base_price, airport_tax, service_tax, total_price, logo=None):
     skip_pages = []
+
+    rd = getRawDataFromPageData(pagesData[0])
+    ticketType = getTicketTypeFromRawData(rd)
+    if ticketType == 5:
+        newpagesdata = []
+        for i in range(len(pagesData)):
+            rd = getRawDataFromPageData(pagesData[i])
+            if 'RESERVATION CONFIRMED' in rd:                
+                newpagesdata.append(pagesData[i])
+                for j in range(i+1, len(pagesData)):
+                    if 'RESERVATION CONFIRMED' not in getRawDataFromPageData(pagesData[j]):
+                        newpagesdata[-1] += "\n" + pagesData[j]
+        pagesData = newpagesdata
+    
     for i in range(len(pagesData)):
         if i in skip_pages:
             continue
@@ -202,7 +244,8 @@ def create_output(inputfilename, pagesData, base_price, airport_tax, service_tax
         if not ticket:
             continue
         # print(ticket)
-        if ticket['ticketType'] == 4 and len(pagesData)-1 >= i+1:
+        # print(ticket)
+        if ticketType == 4 and len(pagesData)-1 >= i+1:
             ticket2 = getTicketDataFromPageData(pagesData[i+1])
             if ticket2['passport_no'] == ticket['passport_no'] and ticket2['depart'] == ticket['arrive'] and ticket2['arrive'] == ticket['depart']:
                 ticket['isReturnTrip'] = True
@@ -219,91 +262,99 @@ def create_output(inputfilename, pagesData, base_price, airport_tax, service_tax
                 ticket['baggage2'] = ticket2['baggage']
                 ticket['departure_terminal2'] = ticket2['departure_terminal']
                 skip_pages.append(i+1)
-        if ticket['ticketType'] == 5 and 'RESERVATION CONFIRMED' in ticket['rawdata']:
-            ticket2 = getTicketDataFromPageData(pagesData[i+1])
-            
-
-
-        template = os.path.join(TEMPLATES_FOLDER, '2.pdf' if ticket['isReturnTrip'] else '1.pdf') 
-        reader = PdfReader(template)
-        writer = PdfWriter()
-        packet = BytesIO()
-        can = canvas.Canvas(packet, pagesize=letter)
-        can.setFontSize(8)
-        # check if airline logo exists
-
-        can.drawString(10, 622, ticket['traveller'])
-        can.drawString(230, 622, ticket['passport_no'])
-        can.drawString(350, 622, ticket['dob'])
-        can.drawString(435, 622, ticket['status'])
-
-        can.drawString(50, 475, ticket['airline_name'])
-        if not logo:
-            logo,_ = process.extractOne(ticket['airline_name'], os.listdir(AIRLINES_FOLDER))
-        else:
-            logo,_ = process.extractOne(logo, os.listdir(AIRLINES_FOLDER))
-        if logo:
-            can.drawImage(os.path.join(AIRLINES_FOLDER, logo), 7, 470, width=30, height=30)
-        can.drawString(200, 475, ticket['flight_no'])
-        can.drawString(290, 475,ticket['cabin'])
-        can.drawString(360,475,ticket['stop'])
-        can.drawString(420,475,ticket['airline_pnr'])
-        can.drawString(500,475,ticket['ticket_no'])
         
-        can.drawString(150, 460,ticket['depart'])
-        can.drawString(150, 445,ticket['arrive'])
-
-        can.drawString(290, 445,ticket['date'])
-        can.drawString(360,445,ticket['time'])
-        can.drawString(420,445,ticket['baggage'])
-        can.drawString(500,445,ticket['departure_terminal'])
-
-
-        if not ticket['isReturnTrip']:
-            can.drawString(100, 382, base_price)
-            can.drawString(100, 367, airport_tax)
-            can.drawString(100, 352, service_tax)
-            can.drawString(100, 337, total_price)
+        if ticketType != 5:
+            tickets = [ticket]
         else:
-            can.drawString(40, 385, ticket['airline_name2'])
+            tickets = ticket
+
+        print('tickets', len(tickets))
+        for ti,ticket in enumerate(tickets):
+            template = os.path.join(TEMPLATES_FOLDER, '2.pdf' if ticket['isReturnTrip'] else '1.pdf') 
+            reader = PdfReader(template)
+            writer = PdfWriter()
+            packet = BytesIO()
+            can = canvas.Canvas(packet, pagesize=letter)
+            can.setFontSize(8)
+            # check if airline logo exists
+
+            can.drawString(30, 622, ticket['traveller'])
+            can.drawString(260, 622, ticket['passport_no'])
+            can.drawString(350, 622, ticket['dob'])
+            can.drawString(445, 622, ticket['status'])
+
             if not logo:
-                logo,_ = process.extractOne(ticket['airline_name2'], os.listdir(AIRLINES_FOLDER))
+                logo,_ = process.extractOne(ticket['airline_name'], os.listdir(AIRLINES_FOLDER))
+                can.drawString(60, 475, ticket['airline_name'])
             else:
                 logo,_ = process.extractOne(logo, os.listdir(AIRLINES_FOLDER))
+                can.drawString(60, 475, str(logo).split(".")[0].title())
             if logo:
-                can.drawImage(os.path.join(AIRLINES_FOLDER, logo), 7, 380, width=30, height=30)
-            can.drawString(200,385, ticket['flight_no2'])
-            can.drawString(290,385,ticket['cabin2'])
-            can.drawString(360,385,ticket['stop2'])
-            can.drawString(420,385,ticket['airline_pnr2'])
-            can.drawString(500,385,ticket['ticket_no2'])
+                can.drawImage(os.path.join(AIRLINES_FOLDER, logo), 6, 470, width=31, height=31)
+            can.drawString(200, 475, ticket['flight_no'])
+            can.drawString(290, 475,ticket['cabin'])
+            can.drawString(360,475,ticket['stop'])
+            can.drawString(420,475,ticket['airline_pnr'])
+            can.drawString(500,475,ticket['ticket_no'])
+            
+            can.drawString(145, 460,ticket['depart'])
+            can.drawString(145, 445,ticket['arrive'])
 
-            can.drawString(150, 370,ticket['depart2'])
-            can.drawString(150,355,ticket['arrive2'])
+            can.drawString(290, 445,ticket['date'])
+            can.drawString(360,445,ticket['time'])
+            can.drawString(425,445,ticket['baggage'])
+            can.drawString(500,445,ticket['departure_terminal'])
 
-            can.drawString(290,355,ticket['date2'])
-            can.drawString(360,355,ticket['time2'])
-            can.drawString(420,355,ticket['baggage2'])
-            can.drawString(500,355,ticket['departure_terminal2'])
 
-            can.drawString(95, 285, base_price)
-            can.drawString(95, 270, airport_tax)
-            can.drawString(95, 255, service_tax)
-            can.drawString(95, 240, total_price)
-        can.save()
-        packet.seek(0)
+            if not ticket['isReturnTrip']:
+                can.drawString(100, 382, base_price)
+                can.drawString(100, 367, airport_tax)
+                can.drawString(100, 352, service_tax)
+                can.drawString(100, 337, total_price)
+            else:
+                if not logo:
+                    logo,_ = process.extractOne(ticket['airline_name2'], os.listdir(AIRLINES_FOLDER))
+                    can.drawString(60, 385, ticket['airline_name2'])
+                else:
+                    logo,_ = process.extractOne(logo, os.listdir(AIRLINES_FOLDER))
+                    can.drawString(60, 385, str(logo).split(".")[0].title())
+                if logo:
+                    can.drawImage(os.path.join(AIRLINES_FOLDER, logo), 6, 381, width=31, height=31)
+                can.drawString(200,385, ticket['flight_no2'])
+                can.drawString(290,385,ticket['cabin2'])
+                can.drawString(360,385,ticket['stop2'])
+                can.drawString(420,385,ticket['airline_pnr2'])
+                can.drawString(500,385,ticket['ticket_no2'])
 
-        overlay_pdf = PdfReader(packet)
-        page = reader.pages[0]
-        page.merge_page(overlay_pdf.pages[0])
-        writer.add_page(page)
-        if len(pagesData) > 1:
-            with open(os.path.join(OUTPUT_FOLDER,f"new-{inputfilename}-{i}.pdf"), 'wb') as output_pdf:
+                can.drawString(145,370,ticket['depart2'])
+                can.drawString(145,355,ticket['arrive2'])
+
+                can.drawString(290,355,ticket['date2'])
+                can.drawString(360,355,ticket['time2'])
+                can.drawString(425,355,ticket['baggage2'])
+                can.drawString(500,355,ticket['departure_terminal2'])
+
+                can.drawString(95, 285, base_price)
+                can.drawString(95, 270, airport_tax)
+                can.drawString(95, 255, service_tax)
+                can.drawString(95, 240, total_price)
+            can.save()
+            packet.seek(0)
+
+            overlay_pdf = PdfReader(packet)
+            page = reader.pages[0]
+            page.merge_page(overlay_pdf.pages[0])
+            writer.add_page(page)
+
+            filename= f"new-{inputfilename}"
+            if len(pagesData) > 1:
+                filename = f"{filename}-p{i+1}"
+            if len(tickets) > 1:
+                filename = f"{filename}-t{ti+1}"
+            filename = f"{filename}.pdf"
+            with open(os.path.join(OUTPUT_FOLDER,filename), 'wb') as output_pdf:
                 writer.write(output_pdf)
-        else:
-            with open(os.path.join(OUTPUT_FOLDER,f"new-{inputfilename}.pdf"), 'wb') as output_pdf:
-                writer.write(output_pdf)
-
+        
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
@@ -404,7 +455,6 @@ async def output_preview(request: Request):
     file_path = os.path.join(OUTPUT_FOLDER, file_name)
     if not os.path.exists(file_path):
         files = [f for f in os.listdir(OUTPUT_FOLDER) if f.lower().endswith('.pdf') and f.startswith(f"{file_name.replace('.pdf','')}")]
-        print(files, file_name,f"{file_name.replace('.pdf','')}")
         if files:
             zip_file_path = f"{file_name}.zip"
             # create a separate folder and copy the files there
