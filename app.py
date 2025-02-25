@@ -1,4 +1,5 @@
 import shutil
+from tabnanny import check
 import time
 from fastapi.encoders import jsonable_encoder
 import fitz
@@ -18,6 +19,15 @@ import dateutil.parser
 app = FastAPI()
 
 templates = Jinja2Templates(directory="web")
+
+def hash(ke):
+    return str(ke)
+
+hashfile = "hash.data"
+
+if not os.path.exists(hashfile):
+    with open(hashfile,'w') as f:
+        f.write(str(hash('123')))
 
 TEMPLATES_FOLDER = 'template'
 UPLOAD_FOLDER = 'input'
@@ -363,8 +373,34 @@ def create_output(inputfilename, pagesData, base_price, airport_tax, service_tax
                 writer.write(output_pdf)
         
 
+@app.post("/login/", response_class=HTMLResponse)
+async def index(request: Request):
+    body = await request.json()
+    key = body.get('key',None)
+    if not key:
+        return JSONResponse(jsonable_encoder(dict(message= f"Invalid password.")), status_code=400)
+    has = str(hash(str(key)))
+    with open(hashfile,'r',) as f:
+        fr = f.read()
+        print(has, fr)
+        if has != fr:
+            return JSONResponse(jsonable_encoder(dict(message= f"Invalid password.")), status_code=400)
+    return JSONResponse(jsonable_encoder(dict(key= has)), status_code=200)
+
+def checkKey(key):
+    if not key:
+        return False
+    with open(hashfile,'r') as f:
+        if key != f.read():
+            return False
+    return True
+           
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
+    key = request.query_params.get('key',None)
+    if not checkKey(key):
+        return templates.TemplateResponse("login.html", dict(request=request))
+    
     files = [f for f in os.listdir(UPLOAD_FOLDER) if f.lower().endswith('.pdf') and os.path.isfile(os.path.join(UPLOAD_FOLDER, f))]
     temps = [f for f in os.listdir(TEMPLATES_FOLDER) if f.lower().endswith('.pdf') and os.path.isfile(os.path.join(TEMPLATES_FOLDER, f))]
     airlines = [f.capitalize() for f in os.listdir(AIRLINES_FOLDER) if f.lower().split(".")[-1:][0] in ['png','jpg','jpeg'] and os.path.isfile(os.path.join(AIRLINES_FOLDER, f))]
@@ -377,22 +413,34 @@ async def index(request: Request):
         else:
             files[files.index(file)] = (file, None)
     
-    return templates.TemplateResponse("index.html", dict(request=request, files=files, templates=temps, airlines=airlines))
+    return templates.TemplateResponse("index.html", dict(request=request, key=key, files=files, templates=temps, airlines=airlines))
 
-@app.get("/history", response_class=HTMLResponse)
+@app.get("/history/", response_class=HTMLResponse)
 async def index(request: Request):
+    key = request.query_params.get('key',None)
+    if not checkKey(key):
+        return templates.TemplateResponse("login.html", dict(request=request))
+
     outputs = [f for f in os.listdir(OUTPUT_FOLDER) if f.lower().endswith('.pdf') and f.lower().startswith('new-') and os.path.isfile(os.path.join(OUTPUT_FOLDER, f))]
-    return templates.TemplateResponse("output.html", dict(request=request, outputs=outputs))
+    return templates.TemplateResponse("output.html", dict(request=request, key=key, outputs=outputs))
 
-@app.get("/airlines", response_class=HTMLResponse)
+@app.get("/airlines/", response_class=HTMLResponse)
 async def index(request: Request):
+    key = request.query_params.get('key',None)
+    if not checkKey(key):
+        return templates.TemplateResponse("login.html", dict(request=request))
+
+    if not checkKey(request.query_params.get('key',None)):
+        return templates.TemplateResponse("login.html", dict(request=request))
+    
     airlines = [f.capitalize() for f in os.listdir(AIRLINES_FOLDER) if f.lower().split(".")[-1:][0] in ['png','jpg','jpeg'] and os.path.isfile(os.path.join(AIRLINES_FOLDER, f))]
     airlines.sort()
-    return templates.TemplateResponse("airlines.html", dict(request=request, airlines=airlines))
+    return templates.TemplateResponse("airlines.html", dict(request=request, key=key, airlines=airlines))
 
 
 @app.post("/upload-airlines/", response_class=HTMLResponse)
 async def upload_airlines(files: list[UploadFile] = File(...)):
+    files = [file for file in files if file.content_type in ["image/png", "image/jpg", "image/jpeg"]]
     for file in files:
         if file.content_type in ["image/png", "image/jpg", "image/jpeg"]:
             file_path = os.path.join(AIRLINES_FOLDER, file.filename.lower().strip())
@@ -417,7 +465,7 @@ async def delete_airline(request: Request):
     return RedirectResponse(url="/airlines", status_code=303)
 
 @app.get("/airline-preview/", response_class=HTMLResponse)
-async def output_preview(request: Request):
+async def airline_preview(request: Request):
     file_name = request.query_params.get('file',None)
     print(file_name)
     file_path = os.path.join(AIRLINES_FOLDER, file_name.lower())

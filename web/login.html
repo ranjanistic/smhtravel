@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Airlines - SMH Travel</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-100">
+    <div id="loading-overlay"></div>
+    <div class="container max-w-screen-lg mx-auto py-8 px-4">
+        <h1 class="text-3xl font-bold mb-6 text-center">Login</h1>
+        <div class="bg-white justify-center text-center p-6 shadow rounded">
+            <input type="text" placeholder="Password" class="bg-gray-100 p-4" id="password" />
+            <br/>
+            <br/>
+            <button id="login" class="p-4 bg-blue-500 text-white rounded-lg">Login</button>
+        </div>
+        <br/>
+        
+    </div>
+<script>
+    const uploadForm = document.getElementById('login');
+        if (uploadForm) {
+            uploadForm.addEventListener('click', async (e) => {
+                try {
+                    let resp = await axios.post('/login/' ,{
+                        key: document.getElementById('password').value
+                    });
+                    if (resp.data.key){
+                        window.location.href = `/?key=${resp.data.key}`;
+                    } else {
+                        alert("Invalid password");
+                    }
+                } catch (e){
+                    console.error(e);
+                    alert(e.response.data.message);
+                }
+                
+            });
+        }
+
+    const airlinedeletes = document.querySelectorAll('.airline-delete');
+    airlinedeletes.forEach((airlinedelete) => {
+        airlinedelete.addEventListener('click', async (e) => {
+            const airline = airlinedelete.dataset.airline;
+            try {
+                await axios.delete('/delete-airline/' + `?file=${airline}` );
+                window.location.reload();
+            } catch (err) {
+                console.error(err);
+            }
+        });
+    });
+
+</script>
+</body>
+
+</html>
