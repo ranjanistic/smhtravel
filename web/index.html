@@ -73,7 +73,7 @@
                     <input type="text" id="{{file.0}}-Service-Tax" placeholder="Service Tax" class="border p-2 rounded file-service-tax">
                     <input type="text" id="{{file.0}}-Total-Price" placeholder="Total Price" class="border p-2 rounded file-total-price">
                     <input type="text" id="{{file.0}}-Passport" placeholder="Passport" class="border p-2 rounded file-passport">
-                    <input type="text" id="{{file.0}}-dob" placeholder="DOB" class="border p-2 rounded file-dob">
+                    <input type="text" id="{{file.0}}-dob" placeholder="Date of birth" class="border p-2 rounded file-dob">
                     <select hidden id="{{file.0}}-file-template" class="border p-2 rounded file-template">
                         <option value="">Choose template</option>
                         {% for template in templates %}
@@ -311,6 +311,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             total_price: file.querySelector('.file-total-price').value,
                             template: file.querySelector('.file-template').value,
                             airline: file.querySelector('.file-airlines').value,
+                            passport: file.querySelector('.file-passport').value,
+                            dob: file.querySelector('.file-dob').value,
                         });
                         window.location.reload();
                     } catch (err) {
