@@ -1,11 +1,9 @@
 import shutil
-from tabnanny import check
-import time
 from fastapi.encoders import jsonable_encoder
 import fitz
 import re
 import os
-from thefuzz import fuzz, process
+from thefuzz import process
 from PyPDF2 import PdfReader, PdfWriter
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
@@ -13,7 +11,6 @@ from io import BytesIO
 from fastapi import FastAPI, File, Request, UploadFile
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from fastapi.staticfiles import StaticFiles
 import dateutil.parser
 
 app = FastAPI()
