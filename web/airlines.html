@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Airlines - SMH Travel</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-100">
+    <div id="loading-overlay"></div>
+    <div class="container max-w-screen-lg mx-auto py-8 px-4">
+        <h1 class="text-3xl font-bold mb-6 text-center">Airlines</h1>
+        <a href="/" class="text-blue-500 w-full flex justify-start pb-4 hover:underline break-words">< Back home</a>
+        <div class="bg-white p-6 shadow rounded">
+            <form id="upload_airlines" enctype="multipart/form-data">
+                <label class="block mb-2 font-bold">Upload airlines</label>
+                <input type="file" name="files" id="file_input" multiple class="block mb-4">
+                <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded">Upload</button>
+            </form>
+        </div>
+        <br/>
+        {% if airlines %}
+        <!-- File List -->
+        <ul>
+            {% for airline in airlines %}
+            <li class="mb-6 bg-white p-6 shadow rounded">
+                <div class="mb-2 flex justify-between items-center">
+                    <div>
+                        {{ airline }}
+                        <button  class="bg-red-100 px-2 text-red-500 airline-delete" data-airline="{{ airline }}">Delete</button>
+                    </div>
+                    <strong>
+                        <img src="/airline-preview/?file={{ airline }}" width="100" />
+                    </strong>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+
+        {% else %}
+        <!-- Upload Form -->
+        <div class="bg-white p-6 shadow rounded">
+            No airlines.
+        </div>
+        {% endif %}
+    </div>
+<script>
+    const uploadForm = document.getElementById('upload_airlines');
+        if (uploadForm) {
+            uploadForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const formData = new FormData();
+                const files = document.getElementById('file_input').files;
+                for (let file of files) {
+                    formData.append('files', file);
+                }
+                try {
+                    await axios.post('/upload-airlines/', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+                    window.location.reload();
+                } catch (err) {
+                    console.error(err);
+                }
+            });
+        }
+
+    const airlinedeletes = document.querySelectorAll('.airline-delete');
+    airlinedeletes.forEach((airlinedelete) => {
+        airlinedelete.addEventListener('click', async (e) => {
+            const airline = airlinedelete.dataset.airline;
+            try {
+                await axios.delete('/delete-airline/' + `?file=${airline}` );
+                window.location.reload();
+            } catch (err) {
+                console.error(err);
+            }
+        });
+    });
+
+</script>
+</body>
+
+</html>
