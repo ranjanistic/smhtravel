@@ -5,7 +5,6 @@ import fitz
 import re
 import os
 from thefuzz import fuzz, process
-# from reportlab.pdfgen import canvas
 from PyPDF2 import PdfReader, PdfWriter
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
@@ -18,8 +17,8 @@ import dateutil.parser
 
 app = FastAPI()
 
-# Set up templates folder
 templates = Jinja2Templates(directory="web")
+
 TEMPLATES_FOLDER = 'template'
 UPLOAD_FOLDER = 'input'
 OUTPUT_FOLDER = 'output'
@@ -33,34 +32,11 @@ def find_index_with_prefix(string_list, prefix):
 
 def extract_pages_from_pdf(pdf_path):
     doc = fitz.open(pdf_path)
-    text = ""
     pages = []
     for page_num in range(len(doc)):
         page = doc.load_page(page_num)
         pages.append(page.get_text("text"))
     return pages
-
-def write_on_pdf(input_pdf_path, output_pdf_path, text, x, y, page_number=0):
-    
-    reader = PdfReader(input_pdf_path)
-    writer = PdfWriter()
-
-    packet = BytesIO()
-    can = canvas.Canvas(packet, pagesize=letter)
-    can.drawString(x, y, text)
-    can.save()
-    packet.seek(0)
-
-    overlay_pdf = PdfReader(packet)
-    for i in range(len(reader.pages)):
-        page = reader.pages[i]
-        if i == page_number:
-            page.merge_page(overlay_pdf.pages[0]) 
-        writer.add_page(page)
-
-    with open(output_pdf_path, 'wb') as output_pdf:
-        writer.write(output_pdf)
-
 
 def getTicketTypeFromRawData(rawdata):
     
@@ -191,7 +167,6 @@ def getTicketDataFromPageData(pageData):
         if ticketType == 5:
             datas = []
             i = rawdata.index('E TICKET DETAILS')+5
-            print(i, range(i, len(rawdata), 3))
             for x in range(i, len(rawdata), 4):
                 locdata = dict(ticketType=ticketType,)
                 locdata['airline_pnr'] = rawdata[rawdata.index('RESERVATION NUMBER (PNR)')+1] or default_value
@@ -199,19 +174,52 @@ def getTicketDataFromPageData(pageData):
                 locdata['depart'] = rawdata[rawdata.index('ORIGIN /')+13] or default_value
                 locdata['arrive'] = rawdata[rawdata.index('DESTINATION')+24] or default_value
                 locdata['date'] = rawdata[rawdata.index('DEPARTURE /')+24] or default_value
-                locdata['time'] = rawdata[rawdata.index('DEPARTURE /')+25] or default_value
-                locdata['cabin'] = rawdata[rawdata.index('CLASS OF SERVICE')+15] or default_value
+                # check if last element is a n 
+                if not str(locdata['date'].split(" ")[-1]).strip().isnumeric():
+                    if len(rawdata[rawdata.index('DEPARTURE /')+25].split(" ")) > 1:
+                        locdata['date'] = f"{locdata['date']} {rawdata[rawdata.index('DEPARTURE /')+25].split(" ")[0]}".strip()
+                        locdata['time'] = rawdata[rawdata.index('DEPARTURE /')+25].split(" ")[1].strip() or default_value
+                    else:
+                        locdata['date'] = f"{locdata['date']} {rawdata[rawdata.index('DEPARTURE /')+25]}".strip()
+                        locdata['time'] = rawdata[rawdata.index('DEPARTURE /')+26].strip() or default_value
+                else:
+                    locdata['time'] = rawdata[rawdata.index('DEPARTURE /')+25] or default_value
+                locdata['date'] = str(dateutil.parser.parse(locdata['date']).date()) or default_value
+                locdata['cabin'] = rawdata[rawdata.index('CLASS OF SERVICE')+15].split(" ")[0].strip() or default_value
                 locdata['stop'] = default_value
                 locdata['departure_terminal'] = default_value
                 locdata['isReturnTrip'] = False
                 locdata['baggage'] = default_value
+                locdata['traveller'] = rawdata[x]
+
                 locdata['passport_no'] = default_value
                 locdata['dob']= default_value
-                print(x, rawdata[x])
-                locdata['traveller'] = rawdata[x]
+
                 locdata['flight_no'] = rawdata[x+2]
                 locdata['ticket_no'] = rawdata[x+3]
+                # find the index of Passport
                 datas.append(locdata)
+            
+            passports = list(filter(lambda x: x.startswith('Passport No.'), rawdata))
+            
+            for locdata in datas:
+                if len(passports) > 1:
+                    travelername = None
+                    for passp in passports:
+                        travelername = rawdata[rawdata.index(passp) - 1].strip()
+                        print(passp, travelername, locdata['traveller'])
+                        if travelername == locdata['traveller']:
+                            locdata['passport_no'] = passp.split("-")[1].strip()
+                            locdata['dob'] =  str(dateutil.parser.parse(rawdata[rawdata.index(passp) + 1].split("-")[1].strip()).date())
+                            break
+                        
+                    if not travelername:
+                        travelername = f"{rawdata[rawdata.index(passp) - 2]} {rawdata[rawdata.index(passp) - 1]}".strip()
+                        print(passp, travelername, locdata['traveller'])
+                        if travelername == locdata['traveller']:
+                            locdata['passport_no'] = passp.split("-")[1].strip()
+                            locdata['dob'] = str(dateutil.parser.parse(rawdata[rawdata.index(passp) + 1].split("-")[1].strip()).date())
+                            break
             print(len(datas))
             return datas
         else:
@@ -267,7 +275,6 @@ def create_output(inputfilename, pagesData, base_price, airport_tax, service_tax
         else:
             tickets = ticket
 
-        print('tickets', len(tickets))
         for ti,ticket in enumerate(tickets):
             template = os.path.join(TEMPLATES_FOLDER, '2.pdf' if ticket['isReturnTrip'] else '1.pdf') 
             reader = PdfReader(template)
@@ -277,9 +284,9 @@ def create_output(inputfilename, pagesData, base_price, airport_tax, service_tax
             can.setFontSize(8)
             # check if airline logo exists
 
-            can.drawString(30, 622, ticket['traveller'])
-            can.drawString(260, 622, ticket['passport_no'])
-            can.drawString(350, 622, ticket['dob'])
+            can.drawString(20, 622, ticket['traveller'])
+            can.drawString(260, 622, passport or ticket['passport_no'])
+            can.drawString(360, 622, dob or ticket['dob'])
             can.drawString(445, 622, ticket['status'])
 
             if not logo:
@@ -287,7 +294,7 @@ def create_output(inputfilename, pagesData, base_price, airport_tax, service_tax
                 can.drawString(60, 475, ticket['airline_name'])
             else:
                 logo,_ = process.extractOne(logo, os.listdir(AIRLINES_FOLDER))
-                can.drawString(60, 475, str(logo).split(".")[0].title())
+                can.drawString(60, 475, str(logo).split(".")[0].replace("-"," ").title())
             if logo:
                 can.drawImage(os.path.join(AIRLINES_FOLDER, logo), 6, 470, width=31, height=31)
             can.drawString(200, 475, ticket['flight_no'])
@@ -316,7 +323,7 @@ def create_output(inputfilename, pagesData, base_price, airport_tax, service_tax
                     can.drawString(60, 385, ticket['airline_name2'])
                 else:
                     logo,_ = process.extractOne(logo, os.listdir(AIRLINES_FOLDER))
-                    can.drawString(60, 385, str(logo).split(".")[0].title())
+                    can.drawString(60, 385, str(logo).split(".")[0].replace("-"," ").title())
                 if logo:
                     can.drawImage(os.path.join(AIRLINES_FOLDER, logo), 6, 381, width=31, height=31)
                 can.drawString(200,385, ticket['flight_no2'])
@@ -336,7 +343,8 @@ def create_output(inputfilename, pagesData, base_price, airport_tax, service_tax
                 can.drawString(95, 285, base_price or "0.0")
                 can.drawString(95, 270, airport_tax or "0.0")
                 can.drawString(95, 255, service_tax or "0.0")
-                can.drawString(95, 240, total_price)
+                can.drawString(95, 240, total_price or "0.0")
+
             can.save()
             packet.seek(0)
 
@@ -376,6 +384,48 @@ async def index(request: Request):
     outputs = [f for f in os.listdir(OUTPUT_FOLDER) if f.lower().endswith('.pdf') and f.lower().startswith('new-') and os.path.isfile(os.path.join(OUTPUT_FOLDER, f))]
     return templates.TemplateResponse("output.html", dict(request=request, outputs=outputs))
 
+@app.get("/airlines", response_class=HTMLResponse)
+async def index(request: Request):
+    airlines = [f.capitalize() for f in os.listdir(AIRLINES_FOLDER) if f.lower().split(".")[-1:][0] in ['png','jpg','jpeg'] and os.path.isfile(os.path.join(AIRLINES_FOLDER, f))]
+    airlines.sort()
+    return templates.TemplateResponse("airlines.html", dict(request=request, airlines=airlines))
+
+
+@app.post("/upload-airlines/", response_class=HTMLResponse)
+async def upload_airlines(files: list[UploadFile] = File(...)):
+    for file in files:
+        if file.content_type in ["image/png", "image/jpg", "image/jpeg"]:
+            file_path = os.path.join(AIRLINES_FOLDER, file.filename.lower().strip())
+            with open(file_path, "wb") as f:
+                shutil.copyfileobj(file.file, f)
+        else:
+            return JSONResponse(jsonable_encoder(dict(message= f"Invalid file type for {file.filename}. Only images are allowed.")), status_code=400)
+    return RedirectResponse(url="/airlines", status_code=303)
+
+@app.delete("/delete-airline/", response_class=HTMLResponse)
+async def delete_airline(request: Request):
+    file_name = request.query_params.get('file',None)
+
+    if file_name:
+        files = [file_name.lower()]
+    else:
+            return JSONResponse(jsonable_encoder(dict(message= f"Invalid file.")), status_code=400)
+    for file in files:
+        file_path = os.path.join(AIRLINES_FOLDER, file)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+    return RedirectResponse(url="/airlines", status_code=303)
+
+@app.get("/airline-preview/", response_class=HTMLResponse)
+async def output_preview(request: Request):
+    file_name = request.query_params.get('file',None)
+    print(file_name)
+    file_path = os.path.join(AIRLINES_FOLDER, file_name.lower())
+    if not os.path.exists(file_path):
+        return JSONResponse(jsonable_encoder(dict(message= "Airline not found.")), status_code=404) 
+    
+    return FileResponse(path=file_path, media_type=f'image/{file_name.split(".")[-1]}', filename=file_name)
+
 
 
 @app.post("/upload-files/", response_class=HTMLResponse)
@@ -409,7 +459,6 @@ async def upload_process(request: Request):
                       base_price=body['base_price'],
                       airport_tax=body['airport_tax'],
                       service_tax=body['service_tax'],
-                      template=body['template'],
                       total_price=body['total_price'],
                       airline=body['airline'],
                       passport=body['passport'],
@@ -481,7 +530,7 @@ async def output_preview(request: Request):
 async def output_discard(request: Request):
     file_name = request.query_params.get('file',None)
     if file_name:
-        files = [file_name]
+        files = [f for f in os.listdir(OUTPUT_FOLDER) if f.lower().endswith('.pdf') and f.startswith(file_name.replace('.pdf','')) and os.path.isfile(os.path.join(OUTPUT_FOLDER, f))]
     else:
         files = [f for f in os.listdir(OUTPUT_FOLDER) if f.lower().endswith('.pdf') and os.path.isfile(os.path.join(OUTPUT_FOLDER, f))]
     for file in files:

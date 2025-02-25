@@ -3,3 +3,8 @@ output/*.pdf
 __pycache__
 *.zip
 *.txt
+airlines/*.png
+airlines/*.jpg
+airlines/*.JPG
+airlines/*.jpeg
+airlines/*.docx
