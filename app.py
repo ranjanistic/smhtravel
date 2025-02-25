@@ -78,7 +78,6 @@ def getTicketTypeFromRawData(rawdata):
     return False
 
 def getRawDataFromPageData(pageData):
-    
     return  list(filter(lambda x: len(x) > 0 ,list(map(lambda y: y.strip(), pageData.replace(u'\xa0', u' ').replace('’','\'').replace('•','').split('\n')))))
 
 def getTicketDataFromPageData(pageData):
@@ -221,7 +220,7 @@ def getTicketDataFromPageData(pageData):
 
 
 
-def create_output(inputfilename, pagesData, base_price, airport_tax, service_tax, total_price, logo=None):
+def create_output(inputfilename, pagesData, base_price, airport_tax, service_tax, total_price, logo=None, dob=None, passport=None):
     skip_pages = []
 
     rd = getRawDataFromPageData(pagesData[0])
@@ -307,9 +306,9 @@ def create_output(inputfilename, pagesData, base_price, airport_tax, service_tax
 
 
             if not ticket['isReturnTrip']:
-                can.drawString(100, 382, base_price)
-                can.drawString(100, 367, airport_tax)
-                can.drawString(100, 352, service_tax)
+                can.drawString(100, 382, base_price or "0.0")
+                can.drawString(100, 367, airport_tax or "0.0")
+                can.drawString(100, 352, service_tax or "0.0")
                 can.drawString(100, 337, total_price)
             else:
                 if not logo:
@@ -334,9 +333,9 @@ def create_output(inputfilename, pagesData, base_price, airport_tax, service_tax
                 can.drawString(425,355,ticket['baggage2'])
                 can.drawString(500,355,ticket['departure_terminal2'])
 
-                can.drawString(95, 285, base_price)
-                can.drawString(95, 270, airport_tax)
-                can.drawString(95, 255, service_tax)
+                can.drawString(95, 285, base_price or "0.0")
+                can.drawString(95, 270, airport_tax or "0.0")
+                can.drawString(95, 255, service_tax or "0.0")
                 can.drawString(95, 240, total_price)
             can.save()
             packet.seek(0)
@@ -413,12 +412,14 @@ async def upload_process(request: Request):
                       template=body['template'],
                       total_price=body['total_price'],
                       airline=body['airline'],
+                      passport=body['passport'],
+                      dob=body['dob'],
                       )]
     else:
         files = body
     for file in files:
         pages = extract_pages_from_pdf(os.path.join(UPLOAD_FOLDER,file['name']))
-        create_output(file['name'].replace('.pdf',''), pages, file['base_price'], file['airport_tax'], file['service_tax'], file['total_price'], file.get('airline',None))
+        create_output(file['name'].replace('.pdf',''), pages, file['base_price'], file['airport_tax'], file['service_tax'], file['total_price'], file.get('airline',None), dob=file.get('dob',None), passport=file.get('passport',None))
     
     return JSONResponse(jsonable_encoder(dict(message= "Files processed.")))
 
