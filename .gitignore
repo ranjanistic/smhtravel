@@ -9,3 +9,4 @@ airlines/*.JPG
 airlines/*.jpeg
 airlines/*.docx
 *.data
+.vscode/
