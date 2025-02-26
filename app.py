@@ -194,12 +194,20 @@ def getTicketDataFromPageData(pageData):
         isReturnTrip = len([i for i, x in enumerate(rawdata) if x.startswith("Depart:")]) > 1
         data['isReturnTrip'] = isReturnTrip
     else:
-        
+        print(rawdata)
         if ticketType == 5:
             datas = []
             i = rawdata.index('E TICKET DETAILS')+5
             for x in range(i, len(rawdata), 4):
-                locdata = dict(ticketType=ticketType,)
+                if rawdata[x] == 'FARE RULES':
+                    break
+                locdata = dict(ticketType=ticketType)
+                locdata['traveller'] = rawdata[x]
+                locdata['passport_no'] = default_value
+                locdata['dob']= default_value
+
+                locdata['flight_no'] = rawdata[x+2]
+                locdata['ticket_no'] = rawdata[x+3]
                 locdata['airline_name'] = default_value
                 locdata['airline_pnr'] = rawdata[rawdata.index('RESERVATION NUMBER (PNR)')+1] or default_value
                 locdata['status'] = rawdata[rawdata.index('STATUS')+16] or default_value
@@ -222,14 +230,8 @@ def getTicketDataFromPageData(pageData):
                 locdata['departure_terminal'] = default_value
                 locdata['isReturnTrip'] = False
                 locdata['baggage'] = default_value
-                locdata['traveller'] = rawdata[x]
-
-                locdata['passport_no'] = default_value
-                locdata['dob']= default_value
-
-                locdata['flight_no'] = rawdata[x+2]
-                locdata['ticket_no'] = rawdata[x+3]
                 # find the index of Passport
+                print(locdata)
                 datas.append(locdata)
             
             passports = list(filter(lambda x: x.startswith('Passport No.'), rawdata))
