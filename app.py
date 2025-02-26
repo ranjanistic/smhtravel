@@ -200,6 +200,7 @@ def getTicketDataFromPageData(pageData):
             i = rawdata.index('E TICKET DETAILS')+5
             for x in range(i, len(rawdata), 4):
                 locdata = dict(ticketType=ticketType,)
+                locdata['airline_name'] = default_value
                 locdata['airline_pnr'] = rawdata[rawdata.index('RESERVATION NUMBER (PNR)')+1] or default_value
                 locdata['status'] = rawdata[rawdata.index('STATUS')+16] or default_value
                 locdata['depart'] = rawdata[rawdata.index('ORIGIN /')+13] or default_value
