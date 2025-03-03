@@ -49,7 +49,7 @@ def getTicketTypeFromRawData(rawdata):
     print(rawdata)
     if rawdata[0].strip() == 'This document is not valid for traveling':
         return 1
-    if rawdata[0].strip() == 'Cancellation penalties:':
+    if 'Passport No / National ID' in rawdata:
         return 2
     if rawdata[0].strip() == 'Airline':
         return 3
@@ -115,7 +115,7 @@ def getTicketDataFromPageData(pageData):
         data['passport_no'] = rawdata[rawdata.index('Passport No / National ID')+1] or default_value
         data['dob'] = default_value
         
-        data['airline_name'] = rawdata[rawdata.index('Cancellation penalties:')+8] or default_value
+        data['airline_name'] = rawdata[rawdata.index('Flight Number')-5] or default_value
         data['status'] = default_value
         data['flight_no'] = data['airline_name'].split(' ')[0] or default_value
         data['cabin'] = rawdata[rawdata.index('Class')+1].split(" ")[0] or default_value
@@ -126,7 +126,11 @@ def getTicketDataFromPageData(pageData):
         data['arrive'] = rawdata[rawdata.index('Destination')-5] or default_value
         data['date'] =  str(dateutil.parser.parse(" ".join(rawdata[rawdata.index('Flight Date')-5].split(" ")[1:])).date()) or default_value
         data['time'] = rawdata[rawdata.index('Flight time')-5] or default_value
-        data['baggage'] = rawdata[rawdata.index('Checked Baggage')+5].split(' ')[2]+' KG' or default_value
+        bdata = rawdata[rawdata.index('Checked Baggage')+5]
+        if 'Bag' not in bdata:
+            bdata = rawdata[rawdata.index('Checked Baggage')+8]
+        data['baggage'] = bdata.split(' ')[2]+' KG' or default_value
+
         data['departure_terminal'] = default_value
         
         isReturnTrip = len([i for i, x in enumerate(rawdata) if x == "Origin"]) > 1
