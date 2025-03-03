@@ -67,7 +67,7 @@ def getRawDataFromPageData(pageData):
 def getTicketDataFromPageData(pageData):
     rawdata = getRawDataFromPageData(pageData)
     ticketType = getTicketTypeFromRawData(rawdata)
-    print(ticketType)
+    
     if not ticketType:
         return None
     default_value = '-'
@@ -172,7 +172,6 @@ def getTicketDataFromPageData(pageData):
         data['departure_terminal'] = default_value
         data['isReturnTrip'] = False
     elif ticketType == 6:
-        print(pageData)
         data['traveller'] = rawdata[rawdata.index('Traveler:')+1] or default_value
         data['passport_no'] = default_value
         data['dob'] = default_value
@@ -194,7 +193,6 @@ def getTicketDataFromPageData(pageData):
         isReturnTrip = len([i for i, x in enumerate(rawdata) if x.startswith("Depart:")]) > 1
         data['isReturnTrip'] = isReturnTrip
     else:
-        print(rawdata)
         if ticketType == 5:
             datas = []
             i = rawdata.index('E TICKET DETAILS')+5
@@ -231,7 +229,7 @@ def getTicketDataFromPageData(pageData):
                 locdata['isReturnTrip'] = False
                 locdata['baggage'] = default_value
                 # find the index of Passport
-                print(locdata)
+                
                 datas.append(locdata)
             
             passports = list(filter(lambda x: x.startswith('Passport No.'), rawdata))
@@ -241,7 +239,6 @@ def getTicketDataFromPageData(pageData):
                     travelername = None
                     for passp in passports:
                         travelername = rawdata[rawdata.index(passp) - 1].strip()
-                        print(passp, travelername, locdata['traveller'])
                         if travelername == locdata['traveller']:
                             locdata['passport_no'] = passp.split("-")[1].strip()
                             locdata['dob'] =  str(dateutil.parser.parse(rawdata[rawdata.index(passp) + 1].split("-")[1].strip()).date())
@@ -249,12 +246,10 @@ def getTicketDataFromPageData(pageData):
                         
                     if not travelername:
                         travelername = f"{rawdata[rawdata.index(passp) - 2]} {rawdata[rawdata.index(passp) - 1]}".strip()
-                        print(passp, travelername, locdata['traveller'])
                         if travelername == locdata['traveller']:
                             locdata['passport_no'] = passp.split("-")[1].strip()
                             locdata['dob'] = str(dateutil.parser.parse(rawdata[rawdata.index(passp) + 1].split("-")[1].strip()).date())
                             break
-            print(len(datas))
             return datas
         else:
             return data
@@ -406,7 +401,6 @@ async def index(request: Request):
     has = str(hash(str(key)))
     with open(hashfile,'r',) as f:
         fr = f.read()
-        print(has, fr)
         if has != fr:
             return JSONResponse(jsonable_encoder(dict(message= f"Invalid password.")), status_code=400)
     return JSONResponse(jsonable_encoder(dict(key= has)), status_code=200)
@@ -491,7 +485,7 @@ async def delete_airline(request: Request):
 @app.get("/airline-preview/", response_class=HTMLResponse)
 async def airline_preview(request: Request):
     file_name = request.query_params.get('file',None)
-    print(file_name)
+    
     file_path = os.path.join(AIRLINES_FOLDER, file_name.lower())
     if not os.path.exists(file_path):
         return JSONResponse(jsonable_encoder(dict(message= "Airline not found.")), status_code=404) 
