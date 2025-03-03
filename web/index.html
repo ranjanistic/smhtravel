@@ -7,8 +7,13 @@
     <title>SMH Travel</title>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        button[disabled]{
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+    </style>
 </head>
-
 <body class="bg-gray-100">
     <div id="loading-overlay"></div>
     <div class="container max-w-screen-lg mx-auto py-8 px-4">
@@ -24,7 +29,7 @@
             <form id="upload_form" enctype="multipart/form-data">
                 <label class="block mb-2 font-bold">Add more tickets</label>
                 <input type="file" name="files" id="file_input" multiple class="block mb-4">
-                <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded">Upload</button>
+                <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded" >Upload</button>
             </form>
         </div>
         <br />
