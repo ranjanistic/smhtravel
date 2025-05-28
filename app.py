@@ -67,7 +67,7 @@ def getRawDataFromPageData(pageData):
 def getTicketDataFromPageData(pageData):
     rawdata = getRawDataFromPageData(pageData)
     ticketType = getTicketTypeFromRawData(rawdata)
-    
+    print('ticketType',ticketType)
     if not ticketType:
         return None
     default_value = '-'
@@ -129,6 +129,11 @@ def getTicketDataFromPageData(pageData):
         bdata = rawdata[rawdata.index('Checked Baggage')+5]
         if 'Bag' not in bdata:
             bdata = rawdata[rawdata.index('Checked Baggage')+8]
+        else:
+            if 'Bag' in rawdata[rawdata.index('Checked Baggage')+6]:
+                bdata = rawdata[rawdata.index('Checked Baggage')+6]
+
+        print(bdata)
         data['baggage'] = bdata.split(' ')[2]+' KG' or default_value
 
         data['departure_terminal'] = default_value
