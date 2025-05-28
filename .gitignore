@@ -10,3 +10,4 @@ airlines/*.jpeg
 airlines/*.docx
 *.data
 .vscode/
+.env
