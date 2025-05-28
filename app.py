@@ -207,6 +207,7 @@ def getTicketDataFromPageData(pageData):
         isReturnTrip = len([i for i, x in enumerate(rawdata) if x == "Origin"]) > 1
         data['isReturnTrip'] = isReturnTrip
     elif ticketType == 3:
+        print(rawdata)
         data['traveller'] = " ".join(list(filter(lambda x: x.strip(), rawdata[find_index_with_prefix(rawdata,'Traveler:')].split(' ')))[1:]) or default_value
         data['passport_no'] = default_value
         data['dob'] = default_value
@@ -220,8 +221,12 @@ def getTicketDataFromPageData(pageData):
         data['ticket_no'] = rawdata[find_index_with_prefix(rawdata,'E-Ticket Number:')].split(":")[1].strip() or default_value
         data['depart'] = rawdata[find_index_with_prefix(rawdata,'Depart:')].split(":")[1].split("(")[0].strip() or default_value
         data['arrive'] = rawdata[find_index_with_prefix(rawdata,'Arrive:')].split(":")[1].split("(")[0].strip() or default_value
-        data['date'] =  str(dateutil.parser.parse(rawdata[[i for i, x in enumerate(rawdata) if x.startswith("Date:")][0]].split("Time:")[0].split(":")[1].strip()).date()) or default_value
-        data['time'] =  rawdata[[i for i, x in enumerate(rawdata) if x.startswith("Date:")][0]].split("Time:")[1].strip() or default_value
+        data['date'] = str(dateutil.parser.parse(rawdata[[i for i, x in enumerate(rawdata) if x.startswith("Date:")][0]].split("Time:")[0].split(":")[1].strip()).date()) or default_value
+        data['time'] = rawdata[[i for i, x in enumerate(rawdata) if x.startswith("Date:")][0]].split("Time:")
+        if len(data['time']) > 1:
+            data['time'] = data['time'][1].strip() or default_value
+        else:
+            data['time'] =  rawdata[[i for i, x in enumerate(rawdata) if x.startswith("Time:")][0]].split("Time:")[1].strip() or default_value
         data['baggage'] = "".join(list(filter(lambda x: x.strip(),re.split("  ",rawdata[rawdata.index('Airline')+11])))[2].split("/")[1].split(" ")[3:]).strip() or default_value
         data['departure_terminal'] =  rawdata[find_index_with_prefix(rawdata,"Departure Terminal:")].split(":")[1].strip() or default_value
         
@@ -261,7 +266,13 @@ def getTicketDataFromPageData(pageData):
         data['depart'] = rawdata[find_index_with_prefix(rawdata,'Depart:')].split(":")[1].split("(")[0].strip() or default_value
         data['arrive'] = rawdata[find_index_with_prefix(rawdata,'Arrive:')].split(":")[1].split("(")[0].strip() or default_value
         data['date'] =  str(dateutil.parser.parse(rawdata[[i for i, x in enumerate(rawdata) if x.startswith("Date:")][0]].split("Time:")[0].split(":")[1].strip()).date()) or default_value
-        data['time'] =  rawdata[[i for i, x in enumerate(rawdata) if x.startswith("Date:")][0]].split("Time:")[1].strip() or default_value
+
+        data['time'] = rawdata[[i for i, x in enumerate(rawdata) if x.startswith("Date:")][0]].split("Time:")
+        if len(data['time']) > 1:
+            data['time'] = data['time'][1].strip() or default_value
+        else:
+            data['time'] =  rawdata[[i for i, x in enumerate(rawdata) if x.startswith("Time:")][0]].split("Time:")[1].strip() or default_value
+
         data['baggage'] = " ".join(rawdata[rawdata.index('Cabin / Stop')+4].split("/")[1].split(" ")[3:]).strip() or default_value
         data['departure_terminal'] =  rawdata[find_index_with_prefix(rawdata,"Departure Terminal:")].split(":")[1].strip() or default_value
         
