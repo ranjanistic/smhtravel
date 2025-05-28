@@ -8,12 +8,13 @@
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        button[disabled]{
+        button[disabled] {
             cursor: not-allowed;
             opacity: 0.5;
         }
     </style>
 </head>
+
 <body class="bg-gray-100">
     <div id="loading-overlay"></div>
     <div class="container max-w-screen-lg mx-auto py-8 px-4">
@@ -29,7 +30,7 @@
             <form id="upload_form" enctype="multipart/form-data">
                 <label class="block mb-2 font-bold">Add more tickets</label>
                 <input type="file" name="files" id="file_input" multiple class="block mb-4">
-                <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded" >Upload</button>
+                <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded">Upload</button>
             </form>
         </div>
         <br />
@@ -90,6 +91,24 @@
                         class="border p-2 rounded file-passport">
                     <input type="text" id="{{file.0}}-dob" placeholder="Date of birth"
                         class="border p-2 rounded file-dob">
+                    <input type="text" id="{{file.0}}-Traveler" placeholder="Traveler"
+                        class="border p-2 rounded file-Traveler">
+                    <input type="text" id="{{file.0}}-Flight-No" placeholder="Flight-No"
+                        class="border p-2 rounded file-Flight-No">
+                    <input type="text" id="{{file.0}}-Depart" placeholder="Depart"
+                        class="border p-2 rounded file-Depart">
+                    <input type="text" id="{{file.0}}-Arrive" placeholder="Arrive"
+                        class="border p-2 rounded file-Arrive">
+                    <input type="text" id="{{file.0}}-Cabin" placeholder="Cabin" class="border p-2 rounded file-Cabin">
+                    <input type="text" id="{{file.0}}-Date" placeholder="Date" class="border p-2 rounded file-Date">
+                    <input type="text" id="{{file.0}}-Time" placeholder="Time" class="border p-2 rounded file-Time">
+                    <input type="text" id="{{file.0}}-Airline-PNR" placeholder="Airline PNR"
+                        class="border p-2 rounded file-Airline-PNR">
+                    <input type="text" id="{{file.0}}-ticket-number" placeholder="E ticket number"
+                        class="border p-2 rounded file-ticket-number">
+                    <input type="text" id="{{file.0}}-Baggage" placeholder="Baggage"
+                        class="border p-2 rounded file-Baggage">
+
                     <select hidden id="{{file.0}}-file-template" class="border p-2 rounded file-template">
                         <option value="">Choose template</option>
                         {% for template in templates %}

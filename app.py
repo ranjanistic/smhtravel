@@ -12,8 +12,10 @@ from fastapi import FastAPI, File, Request, UploadFile
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 import dateutil.parser
+import openai
 
 app = FastAPI()
+openai.api_key = "REMOVED"
 
 templates = Jinja2Templates(directory="web")
 
@@ -46,7 +48,7 @@ def extract_pages_from_pdf(pdf_path):
     return pages
 
 def getTicketTypeFromRawData(rawdata):
-    print(rawdata)
+    print('rawdata',rawdata)
     if rawdata[0].strip() == 'This document is not valid for traveling':
         return 1
     if 'Passport No / National ID' in rawdata:
@@ -64,14 +66,83 @@ def getTicketTypeFromRawData(rawdata):
 def getRawDataFromPageData(pageData):
     return  list(filter(lambda x: len(x) > 0 ,list(map(lambda y: y.strip(), pageData.replace(u'\xa0', u' ').replace('’','\'').replace(u"\xad",'-').replace('•','').split('\n')))))
 
+
+def normalize_flight_info(text):
+    prompt = f"""
+Given a text block from a flight ticket, extract key information
+and convert it into a normalized Python dictionary with the following consistent field names:
+
+
+- traveller
+- passport_no
+- dob
+- airline_name
+- status
+- flight_no
+- cabin
+- stop
+- airline_pnr
+- ticket_no
+- depart
+- arrive
+- date
+- time
+- baggage
+- departure_terminal
+
+If the text contains return trip information, add the following keys too
+
+- isReturnTrip
+- airline_name2
+- status2
+- flight_no2
+- cabin2
+- stop2
+- airline_pnr2
+- ticket_no2
+- depart2
+- arrive2
+- date2
+- time2
+- baggage2
+- departure_terminal2
+
+'isReturnTrip' should be a boolean value.
+The text may use different formats, field names, or layouts. Standardize and output and return just the dictionary.
+
+Flight Ticket Text is following:
+{text}
+"""
+
+
+    response = openai.responses.create(
+        model="gpt-4o",
+        instructions="You are an intelligent parser.",
+        input=prompt,
+    )
+    
+
+    result = response['choices'][0]['message']['content']
+    try:
+        structured_data = eval(result)
+        return structured_data
+    except:
+        print("Could not parse dictionary. Here is the raw output:\n")
+        print(result)
+        return None
+
+
 def getTicketDataFromPageData(pageData):
     rawdata = getRawDataFromPageData(pageData)
     ticketType = getTicketTypeFromRawData(rawdata)
     
-    if not ticketType:
-        return None
+    # if not ticketType:
+    #     return None
     default_value = '-'
     data = dict(ticketType=ticketType, rawdata=rawdata)
+    data = dict(data, **normalize_flight_info(pageData))
+    print("yoo",data)
+    return data
     if ticketType == 1:
 
         data['traveller'] = rawdata[rawdata.index('Traveler:')+1].upper() or default_value
@@ -196,67 +267,67 @@ def getTicketDataFromPageData(pageData):
         
         isReturnTrip = len([i for i, x in enumerate(rawdata) if x.startswith("Depart:")]) > 1
         data['isReturnTrip'] = isReturnTrip
-    else:
-        if ticketType == 5:
-            datas = []
-            i = rawdata.index('E TICKET DETAILS')+5
-            for x in range(i, len(rawdata), 4):
-                if rawdata[x] == 'FARE RULES':
-                    break
-                locdata = dict(ticketType=ticketType)
-                locdata['traveller'] = rawdata[x]
-                locdata['passport_no'] = default_value
-                locdata['dob']= default_value
+    elif ticketType == 5:
+        datas = []
+        i = rawdata.index('E TICKET DETAILS')+5
+        for x in range(i, len(rawdata), 4):
+            if rawdata[x] == 'FARE RULES':
+                break
+            locdata = dict(ticketType=ticketType)
+            locdata['traveller'] = rawdata[x]
+            locdata['passport_no'] = default_value
+            locdata['dob']= default_value
 
-                locdata['flight_no'] = rawdata[x+2]
-                locdata['ticket_no'] = rawdata[x+3]
-                locdata['airline_name'] = default_value
-                locdata['airline_pnr'] = rawdata[rawdata.index('RESERVATION NUMBER (PNR)')+1] or default_value
-                locdata['status'] = rawdata[rawdata.index('STATUS')+16] or default_value
-                locdata['depart'] = rawdata[rawdata.index('ORIGIN /')+13] or default_value
-                locdata['arrive'] = rawdata[rawdata.index('DESTINATION')+24] or default_value
-                locdata['date'] = rawdata[rawdata.index('DEPARTURE /')+24] or default_value
-                # check if last element is a n 
-                if not str(locdata['date'].split(" ")[-1]).strip().isnumeric():
-                    if len(rawdata[rawdata.index('DEPARTURE /')+25].split(" ")) > 1:
-                        locdata['date'] = f"{locdata['date']} {rawdata[rawdata.index('DEPARTURE /')+25].split(" ")[0]}".strip()
-                        locdata['time'] = rawdata[rawdata.index('DEPARTURE /')+25].split(" ")[1].strip() or default_value
-                    else:
-                        locdata['date'] = f"{locdata['date']} {rawdata[rawdata.index('DEPARTURE /')+25]}".strip()
-                        locdata['time'] = rawdata[rawdata.index('DEPARTURE /')+26].strip() or default_value
+            locdata['flight_no'] = rawdata[x+2]
+            locdata['ticket_no'] = rawdata[x+3]
+            locdata['airline_name'] = default_value
+            locdata['airline_pnr'] = rawdata[rawdata.index('RESERVATION NUMBER (PNR)')+1] or default_value
+            locdata['status'] = rawdata[rawdata.index('STATUS')+16] or default_value
+            locdata['depart'] = rawdata[rawdata.index('ORIGIN /')+13] or default_value
+            locdata['arrive'] = rawdata[rawdata.index('DESTINATION')+24] or default_value
+            locdata['date'] = rawdata[rawdata.index('DEPARTURE /')+24] or default_value
+            # check if last element is a n 
+            if not str(locdata['date'].split(" ")[-1]).strip().isnumeric():
+                if len(rawdata[rawdata.index('DEPARTURE /')+25].split(" ")) > 1:
+                    locdata['date'] = f"{locdata['date']} {rawdata[rawdata.index('DEPARTURE /')+25].split(" ")[0]}".strip()
+                    locdata['time'] = rawdata[rawdata.index('DEPARTURE /')+25].split(" ")[1].strip() or default_value
                 else:
-                    locdata['time'] = rawdata[rawdata.index('DEPARTURE /')+25] or default_value
-                locdata['date'] = str(dateutil.parser.parse(locdata['date']).date()) or default_value
-                locdata['cabin'] = rawdata[rawdata.index('CLASS OF SERVICE')+15].split(" ")[0].strip() or default_value
-                locdata['stop'] = default_value
-                locdata['departure_terminal'] = default_value
-                locdata['isReturnTrip'] = False
-                locdata['baggage'] = default_value
-                # find the index of Passport
-                
-                datas.append(locdata)
+                    locdata['date'] = f"{locdata['date']} {rawdata[rawdata.index('DEPARTURE /')+25]}".strip()
+                    locdata['time'] = rawdata[rawdata.index('DEPARTURE /')+26].strip() or default_value
+            else:
+                locdata['time'] = rawdata[rawdata.index('DEPARTURE /')+25] or default_value
+            locdata['date'] = str(dateutil.parser.parse(locdata['date']).date()) or default_value
+            locdata['cabin'] = rawdata[rawdata.index('CLASS OF SERVICE')+15].split(" ")[0].strip() or default_value
+            locdata['stop'] = default_value
+            locdata['departure_terminal'] = default_value
+            locdata['isReturnTrip'] = False
+            locdata['baggage'] = default_value
+            # find the index of Passport
             
-            passports = list(filter(lambda x: x.startswith('Passport No.'), rawdata))
-            
-            for locdata in datas:
-                if len(passports) > 1:
-                    travelername = None
-                    for passp in passports:
-                        travelername = rawdata[rawdata.index(passp) - 1].strip()
-                        if travelername == locdata['traveller']:
-                            locdata['passport_no'] = passp.split("-")[1].strip()
-                            locdata['dob'] =  str(dateutil.parser.parse(rawdata[rawdata.index(passp) + 1].split("-")[1].strip()).date())
-                            break
-                        
-                    if not travelername:
-                        travelername = f"{rawdata[rawdata.index(passp) - 2]} {rawdata[rawdata.index(passp) - 1]}".strip()
-                        if travelername == locdata['traveller']:
-                            locdata['passport_no'] = passp.split("-")[1].strip()
-                            locdata['dob'] = str(dateutil.parser.parse(rawdata[rawdata.index(passp) + 1].split("-")[1].strip()).date())
-                            break
-            return datas
-        else:
-            return data
+            datas.append(locdata)
+        
+        passports = list(filter(lambda x: x.startswith('Passport No.'), rawdata))
+        
+        for locdata in datas:
+            if len(passports) > 1:
+                travelername = None
+                for passp in passports:
+                    travelername = rawdata[rawdata.index(passp) - 1].strip()
+                    if travelername == locdata['traveller']:
+                        locdata['passport_no'] = passp.split("-")[1].strip()
+                        locdata['dob'] =  str(dateutil.parser.parse(rawdata[rawdata.index(passp) + 1].split("-")[1].strip()).date())
+                        break
+                    
+                if not travelername:
+                    travelername = f"{rawdata[rawdata.index(passp) - 2]} {rawdata[rawdata.index(passp) - 1]}".strip()
+                    if travelername == locdata['traveller']:
+                        locdata['passport_no'] = passp.split("-")[1].strip()
+                        locdata['dob'] = str(dateutil.parser.parse(rawdata[rawdata.index(passp) + 1].split("-")[1].strip()).date())
+                        break
+        return datas
+    else:
+        data = dict(ticketType=ticketType, rawdata=rawdata)
+        data = dict(data, **normalize_flight_info(pageData))
     return data
 
 
