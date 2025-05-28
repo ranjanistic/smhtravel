@@ -14,8 +14,20 @@ from fastapi.templating import Jinja2Templates
 import dateutil.parser
 import openai
 
+from openai import OpenAI
+
 app = FastAPI()
-openai.api_key = "REMOVED"
+
+openaiapi = ""
+
+deepseekapi = ""
+
+# client = OpenAI(
+#     api_key=deepseekapi,
+#     base_url="https://api.deepseek.com",
+# )
+
+openai.api_key = openaiapi
 
 templates = Jinja2Templates(directory="web")
 
@@ -69,8 +81,9 @@ def getRawDataFromPageData(pageData):
 
 def normalize_flight_info(text):
     prompt = f"""
-Given a text block from a flight ticket, extract key information
-and convert it into a normalized Python dictionary with the following consistent field names:
+{text}
+
+Above is a raw unorganized text data extracted from a pdf flight ticket. Find the following values and return a Python dictionary value output with values extracted from the raw data closely corresponding to the keys below.
 
 
 - traveller
@@ -90,9 +103,9 @@ and convert it into a normalized Python dictionary with the following consistent
 - baggage
 - departure_terminal
 
-If the text contains return trip information, add the following keys too
+If the text contains return trip information, add the following keys too.
 
-- isReturnTrip
+- isReturnTrip (boolean)
 - airline_name2
 - status2
 - flight_no2
@@ -107,22 +120,20 @@ If the text contains return trip information, add the following keys too
 - baggage2
 - departure_terminal2
 
-'isReturnTrip' should be a boolean value.
-The text may use different formats, field names, or layouts. Standardize and output and return just the dictionary.
-
-Flight Ticket Text is following:
-{text}
+The raw text may use different formats, field names, or layouts. Standardize and output and return just the dictionary.
+The raw text may contain multiple tickets for different individuals, in such case, return a list of dictionaries with the same keys as above. Each ticket might also contain return trip info, consider that too.
+Return only the dictionary in the output, do not return any other text or explanation.
 """
 
 
-    response = openai.responses.create(
-        model="gpt-4o",
-        instructions="You are an intelligent parser.",
-        input=prompt,
+    response = openai.ChatCompletion.create(
+        model='gpt-4.1',
+        messages=[{"role": "system", "content": prompt }]
     )
+    print(response.choices)
+    result = response.choices[0].message.content.strip()
+    print("Raw output from model:\n", result)
     
-
-    result = response['choices'][0]['message']['content']
     try:
         structured_data = eval(result)
         return structured_data
