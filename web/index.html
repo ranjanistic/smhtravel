@@ -8,12 +8,13 @@
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        button[disabled]{
+        button[disabled] {
             cursor: not-allowed;
             opacity: 0.5;
         }
     </style>
 </head>
+
 <body class="bg-gray-100">
     <div id="loading-overlay"></div>
     <div class="container max-w-screen-lg mx-auto py-8 px-4">
@@ -29,7 +30,7 @@
             <form id="upload_form" enctype="multipart/form-data">
                 <label class="block mb-2 font-bold">Add more tickets</label>
                 <input type="file" name="files" id="file_input" multiple class="block mb-4">
-                <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded" >Upload</button>
+                <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded">Upload</button>
             </form>
         </div>
         <br />
@@ -90,6 +91,57 @@
                         class="border p-2 rounded file-passport">
                     <input type="text" id="{{file.0}}-dob" placeholder="Date of birth"
                         class="border p-2 rounded file-dob">
+                    <input type="text" id="{{file.0}}-Traveler" placeholder="Traveler"
+                        class="border p-2 rounded file-Traveler">
+                    <input type="text" id="{{file.0}}-status" placeholder="status"
+                        class="border p-2 rounded file-status">
+                    <input type="text" id="{{file.0}}-Flight-No" placeholder="Flight-No"
+                        class="border p-2 rounded file-Flight-No">
+                    <input type="text" id="{{file.0}}-Depart" placeholder="Depart"
+                        class="border p-2 rounded file-Depart">
+                    <input type="text" id="{{file.0}}-Arrive" placeholder="Arrive"
+                        class="border p-2 rounded file-Arrive">
+                        <input type="text" id="{{file.0}}-Cabin" placeholder="Cabin" class="border p-2 rounded file-Cabin">
+                        <input type="text" id="{{file.0}}-stop" placeholder="Stop" class="border p-2 rounded file-stop">
+                    <input type="text" id="{{file.0}}-Date" placeholder="Date" class="border p-2 rounded file-Date">
+                    <input type="text" id="{{file.0}}-Time" placeholder="Time" class="border p-2 rounded file-Time">
+                    <input type="text" id="{{file.0}}-Airline-PNR" placeholder="Airline PNR"
+                        class="border p-2 rounded file-Airline-PNR">
+                    <input type="text" id="{{file.0}}-ticket-number" placeholder="E ticket number"
+                        class="border p-2 rounded file-ticket-number">
+                    <input type="text" id="{{file.0}}-Baggage" placeholder="Baggage"
+                        class="border p-2 rounded file-Baggage">
+                    <input type="text" id="{{file.0}}-departure_terminal" placeholder="departure_terminal"
+                        class="border p-2 rounded file-departure_terminal">
+                    <div>
+
+                        <input type="checkbox" id="{{file.0}}-isReturnTrip" data-file="{{file.0}}"
+                            class="file-isReturnTrip">
+                        <label for="{{file.0}}-isReturnTrip">Is Return Trip?</label>
+                    </div>
+                    <input type="text" id="{{file.0}}-flight_no2" placeholder="return flight_no"
+                        class="border p-2 rounded file-flight_no2 return-field" />
+                    <input type="text" id="{{file.0}}-cabin2" placeholder="return cabin"
+                        class="border p-2 rounded file-cabin2 return-field" />
+                    <input type="text" id="{{file.0}}-stop2" placeholder="return stop"
+                        class="border p-2 rounded file-stop2 return-field" />
+                    <input type="text" id="{{file.0}}-airline_pnr2" placeholder="return airline_pnr"
+                        class="border p-2 rounded file-airline_pnr2 return-field" />
+                    <input type="text" id="{{file.0}}-ticket_no2" placeholder="return ticket_no"
+                        class="border p-2 rounded file-ticket_no2 return-field" />
+                    <input type="text" id="{{file.0}}-depart2" placeholder="return depart"
+                        class="border p-2 rounded file-depart2 return-field" />
+                    <input type="text" id="{{file.0}}-arrive2" placeholder="return arrive"
+                        class="border p-2 rounded file-arrive2 return-field" />
+                    <input type="text" id="{{file.0}}-date2" placeholder="return date"
+                        class="border p-2 rounded file-date2 return-field" />
+                    <input type="text" id="{{file.0}}-time2" placeholder="return time"
+                        class="border p-2 rounded file-time2 return-field" />
+                    <input type="text" id="{{file.0}}-baggage2" placeholder="return baggage"
+                        class="border p-2 rounded file-baggage2 return-field" />
+                    <input type="text" id="{{file.0}}-departure_terminal2" placeholder="return departure_terminal"
+                        class="border p-2 rounded file-departure_terminal2 return-field" />
+
                     <select hidden id="{{file.0}}-file-template" class="border p-2 rounded file-template">
                         <option value="">Choose template</option>
                         {% for template in templates %}
@@ -296,6 +348,32 @@
         // Handle Submit
         const submitButton = document.getElementById('submit');
         if (submitButton) {
+
+            document.querySelectorAll(`.return-field`).forEach(field => {
+                field.style.display = 'none'; // Hide return fields initially
+            });
+            Array.from(document.getElementsByClassName("file-isReturnTrip")).forEach((checkbox) => {
+                checkbox.addEventListener("change", function () {
+                    const fileId = this.dataset.file;
+                    const isReturnTrip = this.checked;
+
+                    const returnFields = document.querySelectorAll(`.return-field`);
+                    returnFields.forEach(field => {
+                        if (field.id.startsWith(fileId)) {
+                            field.style.display = isReturnTrip ? 'block' : 'none';
+                        }
+                    });
+
+                    if (!isReturnTrip) {
+                        returnFields.forEach(field => {
+                            if (field.id.startsWith(fileId)) {
+                                field.value = '';
+                            }
+                        });
+                    }
+                });
+            });
+
             const clearfiles = Array.from(document.getElementsByClassName('file-old-clear'));
             clearfiles.forEach((clear) => {
                 clear.addEventListener('click', async () => {
@@ -340,6 +418,32 @@
                             airline: document.getElementById(`${generate.dataset.file}-file-airlines`).value,
                             passport: document.getElementById(`${generate.dataset.file}-passport`).value,
                             dob: document.getElementById(`${generate.dataset.file}-dob`).value,
+                            traveler: document.getElementById(`${generate.dataset.file}-Traveler`).value,
+                            status: document.getElementById(`${generate.dataset.file}-status`).value,
+                            flight_no: document.getElementById(`${generate.dataset.file}-Flight-No`).value,
+                            depart: document.getElementById(`${generate.dataset.file}-Depart`).value,
+                            arrive: document.getElementById(`${generate.dataset.file}-Arrive`).value,
+                            cabin: document.getElementById(`${generate.dataset.file}-Cabin`).value,
+                            stop: document.getElementById(`${generate.dataset.file}-stop`).value,
+                            date: document.getElementById(`${generate.dataset.file}-Date`).value,
+                            time: document.getElementById(`${generate.dataset.file}-Time`).value,
+                            airline_pnr: document.getElementById(`${generate.dataset.file}-Airline-PNR`).value,
+                            ticket_no: document.getElementById(`${generate.dataset.file}-ticket-number`).value,
+                            baggage: document.getElementById(`${generate.dataset.file}-Baggage`).value,
+                            departure_terminal: document.getElementById(`${generate.dataset.file}-departure_terminal`).value,
+                            isReturnTrip: document.getElementById(`${generate.dataset.file}-isReturnTrip`).checked,
+                            flight_no2: document.getElementById(`${generate.dataset.file}-flight_no2`).value,
+                            cabin2: document.getElementById(`${generate.dataset.file}-cabin2`).value,
+                            stop2: document.getElementById(`${generate.dataset.file}-stop2`).value,
+                            airline_pnr2: document.getElementById(`${generate.dataset.file}-airline_pnr2`).value,
+                            ticket_no2: document.getElementById(`${generate.dataset.file}-ticket_no2`).value,
+                            depart2: document.getElementById(`${generate.dataset.file}-depart2`).value,
+                            arrive2: document.getElementById(`${generate.dataset.file}-arrive2`).value,
+                            date2: document.getElementById(`${generate.dataset.file}-date2`).value,
+                            time2: document.getElementById(`${generate.dataset.file}-time2`).value,
+                            baggage2: document.getElementById(`${generate.dataset.file}-baggage2`).value,
+                            departure_terminal2: document.getElementById(`${generate.dataset.file}-departure_terminal2`).value,
+
                         });
                         window.location.reload();
                     } catch (err) {
@@ -360,6 +464,32 @@
                     total_price: file.querySelector('.file-total-price').value,
                     template: file.querySelector('.file-template').value,
                     airline: file.querySelector('.file-airlines').value,
+                    dob: file.querySelector('.file-dob').value,
+                    traveler: file.querySelector(`.file-Traveler`).value,
+                    status: file.querySelector(`.file-status`).value,
+                    flight_no: file.querySelector(`.file-Flight-No`).value,
+                    depart: file.querySelector(`.file-Depart`).value,
+                    arrive: file.querySelector(`.file-Arrive`).value,
+                    cabin: file.querySelector(`.file-Cabin`).value,
+                    stop: file.querySelector(`.file-stop`).value,
+                    date: file.querySelector(`.file-Date`).value,
+                    time: file.querySelector(`.file-Time`).value,
+                    airline_pnr: file.querySelector(`.file-Airline-PNR`).value,
+                    ticket_no: file.querySelector(`.file-ticket-number`).value,
+                    baggage: file.querySelector(`.file-Baggage`).value,
+                    departure_terminal: file.querySelector(`.file-departure_terminal`).value,
+                    isReturnTrip: file.querySelector(`.file-isReturnTrip`).checked,
+                    flight_no2: file.querySelector(`.file-flight_no2`).value,
+                    cabin2: file.querySelector(`.file-cabin2`).value,
+                    stop2: file.querySelector(`.file-stop2`).value,
+                    airline_pnr2: file.querySelector(`.file-airline_pnr2`).value,
+                    ticket_no2: file.querySelector(`.file-ticket_no2`).value,
+                    depart2: file.querySelector(`.file-depart2`).value,
+                    arrive2: file.querySelector(`.file-arrive2`).value,
+                    date2: file.querySelector(`.file-date2`).value,
+                    time2: file.querySelector(`.file-time2`).value,
+                    baggage2: file.querySelector(`.file-baggage2`).value,
+                    departure_terminal2: file.querySelector(`.file-departure_terminal2`).value,
                 }));
 
 
